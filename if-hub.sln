@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36202.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "if-hub", "if-hub\if-hub.csproj", "{129BE5D5-6748-4C70-B463-6AEA28D7FC94}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{129BE5D5-6748-4C70-B463-6AEA28D7FC94}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{129BE5D5-6748-4C70-B463-6AEA28D7FC94}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{129BE5D5-6748-4C70-B463-6AEA28D7FC94}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{129BE5D5-6748-4C70-B463-6AEA28D7FC94}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {00A7CDEE-43D8-4F7F-9CAA-7E44B9A0BFD1}
+	EndGlobalSection
+EndGlobal

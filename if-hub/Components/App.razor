@@ -1,0 +1,26 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+
+    <title>iF-Hub</title> 
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="app.css" rel="stylesheet" />
+    <link rel="stylesheet" href="if-hub.styles.css" />
+    <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
+</head>
+
+<body>
+    <CascadingAuthenticationState>
+        <Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
+    </CascadingAuthenticationState>
+    
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>

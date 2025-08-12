@@ -1,0 +1,24 @@
+/* Estilos da estrutura principal do Layout */
+.page-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content-area {
+    flex-grow: 1;
+}
+
+/* Estilos de elementos que só existem no Layout */
+.header-main {
+    background-color: #222831;
+}
+
+.footer-main {
+    background-color: #222831;
+    color: #EEEEEE;
+}
+
+.logo-icon svg {
+    fill: #00ADB5;
+}

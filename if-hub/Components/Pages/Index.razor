@@ -1,0 +1,71 @@
+﻿@page "/"
+@using System.Net.Http.Json
+@using if_hub.ViewModels
+@using System.Net.Http.Headers
+@inject HttpClient Http
+
+<PageTitle>Home - iF-Hub</PageTitle>
+
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <h1 class="text-3xl font-bold text-[#222831] text-center sm:text-left">Tópicos Recentes</h1>
+        <a href="/new-topic" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center space-x-2 w-full sm:w-auto justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+            </svg>
+            <span>Criar Novo Tópico</span>
+        </a>
+    </div>
+
+    @if (topicos == null)
+    {
+        <p><em>Carregando tópicos...</em></p>
+    }
+    else
+    {
+        @foreach (var topico in topicos)
+        {
+            <article class="topic-card bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex items-start sm:items-center mb-3 flex-col sm:flex-row">
+                    <img src="https://placehold.co/40x40/00ADB5/EEEEEE?text=@(topico.UsuarioNome?.FirstOrDefault())" alt="Avatar do Utilizador" class="w-10 h-10 rounded-full mr-0 sm:mr-3 mb-2 sm:mb-0">
+                    <div>
+                        <h2 class="text-xl font-semibold"><a href="/topics/@topico.Id" class="topic-title-link transition duration-150">@topico.Titulo</a></h2>
+                        <p class="text-sm meta-text">Postado por <span class="font-medium username-text">@topico.UsuarioNome</span> - <time datetime="@topico.DataCriacao.ToString("yyyy-MM-dd")">@topico.DataCriacao.ToString("dd 'de' MMMM, yyyy")</time></p>
+                    </div>
+                </div>
+                <p class="paragraph-text leading-relaxed mb-4">
+                    @topico.Conteudo
+                </p>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-sm meta-text gap-2">
+                    <div class="flex space-x-4">
+
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline mr-1 icon-highlight"><path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z" /></svg>0 Curtidas</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline mr-1 icon-highlight"><path fill-rule="evenodd" d="M2 5.25A3.25 3.25 0 0 1 5.25 2h9.5A3.25 3.25 0 0 1 18 5.25v7.5A3.25 3.25 0 0 1 14.75 16h-2.072l-1.604 1.203a.75.75 0 0 1-.948 0L8.522 16H5.25A3.25 3.25 0 0 1 2 12.75v-7.5Zm1.5 0V12.75c0 .966.784 1.75 1.75 1.75H8.25l1.004.753a.75.75 0 0 0 .942 0l1.004-.753h2.5a1.75 1.75 0 0 0 1.75-1.75v-7.5a1.75 1.75 0 0 0-1.75-1.75h-9.5a1.75 1.75 0 0 0-1.75 1.75Z" clip-rule="evenodd" /></svg>@topico.TotalRespostas Respostas</span>
+                    </div>
+                    <span class="text-xs px-3 py-1 category-tag rounded-full mt-2 sm:mt-0">@topico.CategoriaNome</span>
+                </div>
+            </article>
+        }
+    }
+
+
+</div>
+
+
+@code {
+    private List<TopicListItemViewModel>? topicos;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var url = "/api/topicos";
+
+            topicos = await Http.GetFromJsonAsync<List<TopicListItemViewModel>>(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao buscar tópicos: {ex.Message}");
+        }
+    }
+}

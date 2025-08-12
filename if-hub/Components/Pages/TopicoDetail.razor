@@ -1,0 +1,237 @@
+﻿@page "/topics/{TopicId:int}"
+@using System.Net.Http.Json
+@using if_hub.ViewModels
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using System.Net.Http.Headers
+
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@if (topic == null)
+{
+    <p><em>Carregando tópico...</em></p>
+}
+else
+{
+    <PageTitle>@topic.Titulo</PageTitle>
+
+    @* Seção do Tópico Principal *@
+    <article class="topic-card bg-white p-6 rounded-xl shadow-lg mb-8">
+        <div class="flex items-start sm:items-center mb-3 flex-col sm:flex-row">
+            <img src="https://placehold.co/40x40/00ADB5/EEEEEE?text=@(topic.UsuarioNome?.FirstOrDefault())" alt="Avatar do Utilizador" class="w-10 h-10 rounded-full mr-0 sm:mr-3 mb-2 sm:mb-0">
+            <div>
+                <h1 class="text-3xl font-bold text-[#222831]">@topic.Titulo</h1>
+                <p class="text-sm meta-text">Postado por <span class="font-medium username-text">@topic.UsuarioNome</span> em <span class="category-tag">@topic.CategoriaNome</span> - <time datetime="@topic.DataCriacao.ToString("yyyy-MM-dd")">@topic.DataCriacao.ToString("dd 'de' MMMM, yyyy")</time></p>
+            </div>
+        </div>
+
+        @if (isOwner)
+        {
+            <div class="flex justify-end gap-2 mb-4 border-b pb-4">
+                <NavLink href="@($"topics/edit/{TopicId}")" class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150">Editar Tópico</NavLink>
+                <button @onclick="HandleDeleteTopic" class="text-sm bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150">Excluir Tópico</button>
+            </div>
+        }
+
+        <div class="prose max-w-none paragraph-text leading-relaxed pt-4">
+            @((MarkupString)topic.Conteudo.Replace("\n", "<br/>"))
+        </div>
+    </article>
+
+    @* Seção das Respostas *@
+    <h3 class="text-2xl font-semibold text-[#222831] mb-4">Respostas</h3>
+    <div class="space-y-6">
+        @foreach (var resposta in topic.Respostas)
+        {
+            <article class="topic-card bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <img src="https://placehold.co/40x40/393E46/EEEEEE?text=@(resposta.UsuarioNome?.FirstOrDefault())" alt="Avatar do Utilizador" class="w-10 h-10 rounded-full mr-3">
+                        <div>
+                            <p class="font-semibold username-text">@resposta.UsuarioNome</p>
+                            <p class="text-sm meta-text"><time datetime="@resposta.DataCriacao.ToString("yyyy-MM-dd")">@resposta.DataCriacao.ToString("dd 'de' MMMM, yyyy 'às' HH:mm")</time></p>
+                        </div>
+                    </div>
+                </div>
+
+                @if (editingReplyId == resposta.Id)
+                {
+                    @* MODO DE EDIÇÃO *@
+                    <EditForm Model="updateReplyModel" OnValidSubmit="HandleUpdateReply">
+                        <DataAnnotationsValidator />
+                        <InputTextArea @bind-Value="updateReplyModel.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg" rows="4"></InputTextArea>
+                        <ValidationMessage For="@(() => updateReplyModel.Conteudo)" />
+                        <div class="flex justify-end gap-2 mt-2">
+                            <button type="button" @onclick="CancelEditing" class="text-sm text-gray-600 hover:text-gray-800 font-semibold">Cancelar</button>
+                            <button type="submit" class="text-sm text-green-600 hover:text-green-800 font-semibold">Salvar</button>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    @* MODO DE VISUALIZAÇÃO *@
+                    <div class="paragraph-text leading-relaxed">
+                        @((MarkupString)resposta.Conteudo.Replace("\n", "<br/>"))
+                        @if (resposta.EditadoEm.HasValue)
+                        {
+                            <em class="text-xs meta-text block mt-2">(Editado)</em>
+                        }
+                    </div>
+                }
+
+                @* Botões de Ação para a Resposta *@
+                @if (loggedInUserId == resposta.UsuarioId.ToString() && editingReplyId != resposta.Id)
+                {
+                    <div class="flex justify-end gap-2 mt-2 pt-2 border-t">
+                        <button @onclick="() => StartEditingReply(resposta)" class="text-sm text-blue-600 hover:text-blue-800 font-semibold">Editar</button>
+                        <button @onclick="() => HandleDeleteReply(resposta.Id)" class="text-sm text-red-600 hover:text-red-800 font-semibold">Excluir</button>
+                    </div>
+                }
+            </article>
+        }
+    </div>
+
+    @* Formulário para Nova Resposta *@
+    <div class="mt-8">
+        <AuthorizeView Context="authContext">
+            <Authorized>
+                <div class="widget p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold widget-title mb-3">Deixe sua Resposta</h3>
+                    <EditForm Model="newReply" OnValidSubmit="HandleSubmitReply">
+                        <DataAnnotationsValidator />
+                        <InputTextArea @bind-Value="newReply.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" rows="5" placeholder="Digite sua resposta aqui..."></InputTextArea>
+                        <ValidationMessage For="@(() => newReply.Conteudo)" />
+                        <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center justify-center w-full mt-4">
+                            <span>Enviar Resposta</span>
+                        </button>
+                    </EditForm>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <p class="text-center meta-text"><a href="/login" class="topic-title-link">Faça login</a> para responder a este tópico.</p>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int TopicId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private TopicDetailViewModel? topic;
+    private CreateRespostaViewModel newReply = new();
+    private bool isOwner = false;
+    private string? loggedInUserId;
+
+    private int? editingReplyId = null;
+    private UpdateRespostaViewModel updateReplyModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTopicAndCheckOwnership();
+    }
+
+    private async Task LoadTopicAndCheckOwnership()
+    {
+        try
+        {
+            topic = await Http.GetFromJsonAsync<TopicDetailViewModel>($"/api/topicos/{TopicId}");
+            if (topic != null && AuthenticationStateTask != null)
+            {
+                var authState = await AuthenticationStateTask;
+                var user = authState.User;
+                if (user.Identity is { IsAuthenticated: true })
+                {
+                    loggedInUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+                    isOwner = loggedInUserId == topic.UsuarioId.ToString();
+                }
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Erro ao carregar o tópico: {ex.ToString()}"); }
+    }
+
+    private async Task HandleSubmitReply()
+    {
+        newReply.TopicoId = TopicId;
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.PostAsJsonAsync("/api/respostas", newReply);
+            Http.DefaultRequestHeaders.Authorization = null;
+            if (response.IsSuccessStatusCode)
+            {
+                newReply.Conteudo = string.Empty;
+                await LoadTopicAndCheckOwnership();
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Erro ao conectar com a API: {ex.Message}"); }
+    }
+
+    private async Task HandleDeleteTopic()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir este tópico? Esta ação não pode ser desfeita.");
+        if (confirmed)
+        {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.DeleteAsync($"/api/topicos/{TopicId}");
+            Http.DefaultRequestHeaders.Authorization = null;
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/");
+            }
+        }
+    }
+
+    private void StartEditingReply(RespostaViewModel resposta)
+    {
+        editingReplyId = resposta.Id;
+        updateReplyModel.Conteudo = resposta.Conteudo;
+    }
+
+    private void CancelEditing()
+    {
+        editingReplyId = null;
+    }
+
+    private async Task HandleUpdateReply()
+    {
+        if (editingReplyId == null) return;
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrEmpty(token)) return;
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await Http.PutAsJsonAsync($"/api/respostas/{editingReplyId}", updateReplyModel);
+        Http.DefaultRequestHeaders.Authorization = null;
+        if (response.IsSuccessStatusCode)
+        {
+            editingReplyId = null;
+            await LoadTopicAndCheckOwnership();
+        }
+    }
+
+    private async Task HandleDeleteReply(int respostaId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir esta resposta?");
+        if (confirmed)
+        {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.DeleteAsync($"/api/respostas/{respostaId}");
+            Http.DefaultRequestHeaders.Authorization = null;
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadTopicAndCheckOwnership();
+            }
+        }
+    }
+}
