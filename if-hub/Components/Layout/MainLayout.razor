@@ -20,6 +20,16 @@
                     </div>
                     <span class="text-2xl font-bold">iF-Hub</span>
                 </NavLink>
+                <AuthorizeView Roles="3">
+                    <Authorized>
+                        <NavLink href="/admin/users" class="group flex items-center gap-x-2 p-2 border-2 border-gray-300 rounded-lg transition-colors duration-150 ease-in-out hover:border-[#00ADB5]">
+                            <span>🛡️</span>
+                            <span class="font-semibold transition-colors duration-150 ease-in-out group-hover:text-[#00ADB5]">
+                                Painel Admin
+                            </span>
+                        </NavLink>
+                    </Authorized>
+                </AuthorizeView>
                 <nav class="hidden md:flex space-x-6 items-center">
                     <NavLink href="/forums" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Fóruns</NavLink>
                     <NavLink href="/about" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Sobre</NavLink>

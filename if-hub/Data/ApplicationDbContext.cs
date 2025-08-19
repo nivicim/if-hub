@@ -24,6 +24,25 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // --- Curtida Configuration (for relationships) ---
+        modelBuilder.Entity<Curtida>(entity =>
+        {
+            entity.HasOne(c => c.Usuario)
+                  .WithMany(u => u.Curtidas)
+                  .HasForeignKey(c => c.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(c => c.Topico)
+                  .WithMany(t => t.Curtidas)
+                  .HasForeignKey(c => c.TopicoId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(c => c.Resposta)
+                  .WithMany(r => r.Curtidas)
+                  .HasForeignKey(c => c.RespostaId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // --- Usuario Configuration ---
         modelBuilder.Entity<Usuario>(entity =>
         {

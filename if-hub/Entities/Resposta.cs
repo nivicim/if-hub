@@ -13,6 +13,6 @@
         public virtual Topico Topico { get; set; }
         public virtual Resposta RespostaPai { get; set; }
         public virtual ICollection<Resposta> RespostasFilhas { get; set; }
-        public virtual ICollection<Curtida> Curtidas { get; set; }
+        public virtual ICollection<Curtida> Curtidas { get; set; } = new List<Curtida>();
     }
 }

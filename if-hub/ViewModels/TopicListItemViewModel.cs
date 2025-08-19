@@ -9,5 +9,7 @@
         public string? UsuarioNome { get; set; }
         public string? CategoriaNome { get; set; }
         public int TotalRespostas { get; set; }
+        public int TotalCurtidas { get; set; }
+        public bool UsuarioCurtiu { get; set; }
     }
 }

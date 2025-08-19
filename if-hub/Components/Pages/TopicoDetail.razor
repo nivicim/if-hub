@@ -1,14 +1,14 @@
 ﻿@page "/topics/{TopicId:int}"
 @using System.Net.Http.Json
+@using System.Net.Http.Headers
 @using if_hub.ViewModels
+@using if_hub.Entities
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
-@using System.Net.Http.Headers
 
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
-@inject AuthenticationStateProvider AuthenticationStateProvider
 
 @if (topic == null)
 {
@@ -39,6 +39,22 @@ else
         <div class="prose max-w-none paragraph-text leading-relaxed pt-4">
             @((MarkupString)topic.Conteudo.Replace("\n", "<br/>"))
         </div>
+
+        <div class="flex items-center text-sm meta-text mt-4 pt-4 border-t border-gray-100">
+            <AuthorizeView>
+                <Authorized>
+                    <button @onclick="ToggleTopicLike" class="flex items-center transition-transform duration-150 ease-in-out hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline mr-1 transition-colors @(topic.UsuarioCurtiu ? "text-red-500" : "text-gray-400")">
+                            <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z" />
+                        </svg>
+                        @topic.TotalCurtidas Curtidas
+                    </button>
+                </Authorized>
+                <NotAuthorized>
+                    <span class="flex items-center text-sm meta-text">@topic.TotalCurtidas Curtidas</span>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
     </article>
 
     @* Seção das Respostas *@
@@ -59,7 +75,6 @@ else
 
                 @if (editingReplyId == resposta.Id)
                 {
-                    @* MODO DE EDIÇÃO *@
                     <EditForm Model="updateReplyModel" OnValidSubmit="HandleUpdateReply">
                         <DataAnnotationsValidator />
                         <InputTextArea @bind-Value="updateReplyModel.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg" rows="4"></InputTextArea>
@@ -72,7 +87,6 @@ else
                 }
                 else
                 {
-                    @* MODO DE VISUALIZAÇÃO *@
                     <div class="paragraph-text leading-relaxed">
                         @((MarkupString)resposta.Conteudo.Replace("\n", "<br/>"))
                         @if (resposta.EditadoEm.HasValue)
@@ -82,14 +96,29 @@ else
                     </div>
                 }
 
-                @* Botões de Ação para a Resposta *@
-                @if (loggedInUserId == resposta.UsuarioId.ToString() && editingReplyId != resposta.Id)
-                {
-                    <div class="flex justify-end gap-2 mt-2 pt-2 border-t">
-                        <button @onclick="() => StartEditingReply(resposta)" class="text-sm text-blue-600 hover:text-blue-800 font-semibold">Editar</button>
-                        <button @onclick="() => HandleDeleteReply(resposta.Id)" class="text-sm text-red-600 hover:text-red-800 font-semibold">Excluir</button>
-                    </div>
-                }
+                <div class="flex items-center justify-end gap-4 mt-2 pt-2 border-t">
+                    <AuthorizeView>
+                        <Authorized>
+                            <button @onclick="() => ToggleReplyLike(resposta)" class="flex items-center text-sm meta-text transition-transform duration-150 ease-in-out hover:scale-110">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline mr-1 transition-colors @(resposta.UsuarioCurtiu ? "text-red-500" : "text-gray-400")">
+                                    <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z" />
+                                </svg>
+                                @resposta.TotalCurtidas
+                            </button>
+                        </Authorized>
+                        <NotAuthorized>
+                            <span class="flex items-center text-sm meta-text">@resposta.TotalCurtidas Curtidas</span>
+                        </NotAuthorized>
+                    </AuthorizeView>
+
+                    @if (loggedInUserId == resposta.UsuarioId.ToString() && editingReplyId != resposta.Id)
+                    {
+                        <div class="flex gap-2">
+                            <button @onclick="() => StartEditingReply(resposta)" class="text-sm text-blue-600 hover:text-blue-800 font-semibold">Editar</button>
+                            <button @onclick="() => HandleDeleteReply(resposta.Id)" class="text-sm text-red-600 hover:text-red-800 font-semibold">Excluir</button>
+                        </div>
+                    }
+                </div>
             </article>
         }
     </div>
@@ -128,7 +157,6 @@ else
     private CreateRespostaViewModel newReply = new();
     private bool isOwner = false;
     private string? loggedInUserId;
-
     private int? editingReplyId = null;
     private UpdateRespostaViewModel updateReplyModel = new();
 
@@ -141,7 +169,16 @@ else
     {
         try
         {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+
             topic = await Http.GetFromJsonAsync<TopicDetailViewModel>($"/api/topicos/{TopicId}");
+
+            Http.DefaultRequestHeaders.Authorization = null;
+
             if (topic != null && AuthenticationStateTask != null)
             {
                 var authState = await AuthenticationStateTask;
@@ -154,6 +191,45 @@ else
             }
         }
         catch (Exception ex) { Console.WriteLine($"Erro ao carregar o tópico: {ex.ToString()}"); }
+    }
+
+    private async Task ToggleTopicLike()
+    {
+        if (topic is null) return;
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = topic.UsuarioCurtiu
+            ? await Http.DeleteAsync($"api/topicos/{topic.Id}/curtir")
+            : await Http.PostAsJsonAsync($"api/topicos/{topic.Id}/curtir", new { });
+
+        Http.DefaultRequestHeaders.Authorization = null;
+
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadTopicAndCheckOwnership();
+        }
+    }
+
+    private async Task ToggleReplyLike(RespostaViewModel resposta)
+    {
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = resposta.UsuarioCurtiu
+            ? await Http.DeleteAsync($"api/respostas/{resposta.Id}/curtir")
+            : await Http.PostAsJsonAsync($"api/respostas/{resposta.Id}/curtir", new { });
+
+        Http.DefaultRequestHeaders.Authorization = null;
+
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadTopicAndCheckOwnership();
+        }
     }
 
     private async Task HandleSubmitReply()
