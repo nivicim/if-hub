@@ -12,7 +12,7 @@
         public virtual Usuario Usuario { get; set; }
         public virtual Categoria Categoria { get; set; }
         public virtual ICollection<Resposta> Respostas { get; set; }
-        public virtual ICollection<Curtida> Curtidas { get; set; }
+        public virtual ICollection<Curtida> Curtidas { get; set; } = new List<Curtida>();
         public virtual ICollection<TopicoTag> TopicoTags { get; set; }
     }
 }

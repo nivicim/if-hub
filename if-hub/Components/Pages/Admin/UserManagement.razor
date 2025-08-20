@@ -1,0 +1,118 @@
+﻿@page "/admin/users"
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using if_hub.ViewModels
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Gerenciamento de Usuários</PageTitle>
+
+<AuthorizeView Roles="3">
+    <Authorized>
+        <h1 class="text-3xl font-bold text-[#222831] mb-6">Gerenciamento de Usuários</h1>
+
+        @if (users == null || allRoles == null)
+        {
+            <p><em>Carregando...</em></p>
+        }
+        else
+        {
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">ID</th>
+                            <th scope="col" class="px-6 py-3">Nome</th>
+                            <th scope="col" class="px-6 py-3">Email</th>
+                            <th scope="col" class="px-6 py-3">Papel (Role)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr class="bg-white border-b hover:bg-gray-50">
+                                <td class="px-6 py-4">@user.Id</td>
+                                <td class="px-6 py-4">@user.Nome</td>
+                                <td class="px-6 py-4">@user.Email</td>
+                                <td class="px-6 py-4">
+                                    <select @onchange="(e) => HandleRoleChange(e, user.Id)" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                        @foreach (var role in allRoles)
+                                        {
+                                            <option value="@role.Id" selected="@(user.RoleNome == role.Nome)">
+                                                @role.Nome
+                                            </option>
+                                        }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <h3 class="text-xl text-red-600">Acesso Negado</h3>
+        <p>Você não tem permissão para acessar esta página.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+
+@code {
+    private List<UserViewModel>? users;
+    private List<RoleViewModel>? allRoles;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            users = await Http.GetFromJsonAsync<List<UserViewModel>>("api/admin/users");
+            allRoles = await Http.GetFromJsonAsync<List<RoleViewModel>>("api/roles");
+
+            Http.DefaultRequestHeaders.Authorization = null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao buscar dados do admin: {ex.Message}");
+        }
+    }
+
+    private async Task HandleRoleChange(ChangeEventArgs e, int userId)
+    {
+        if (e.Value == null) return;
+
+        var newRoleId = int.Parse(e.Value.ToString());
+
+        var model = new UpdateUserRoleViewModel { NewRoleId = newRoleId };
+
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrEmpty(token)) return;
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.PutAsJsonAsync($"api/admin/users/{userId}/role", model);
+
+        Http.DefaultRequestHeaders.Authorization = null;
+
+        if (response.IsSuccessStatusCode)
+        {
+            await OnInitializedAsync();
+        }
+        else
+        {
+            Console.WriteLine($"Falha ao atualizar o papel do usuário. Status: {response.StatusCode}");
+        }
+    }
+}

@@ -8,5 +8,7 @@
         public DateTime? EditadoEm { get; set; }
         public int UsuarioId { get; set; }
         public string? UsuarioNome { get; set; }
+        public int TotalCurtidas { get; set; }
+        public bool UsuarioCurtiu { get; set; }
     }
 }

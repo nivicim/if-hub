@@ -124,5 +124,60 @@
 
             return NoContent();
         }
+
+        // POST: api/respostas/{id}/curtir
+        [HttpPost("{id}/curtir")]
+        [Authorize]
+        public async Task<IActionResult> CurtirResposta(int id)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            var resposta = await _context.Respostas.FindAsync(id);
+            if (resposta == null)
+            {
+                return NotFound("Resposta não encontrada.");
+            }
+
+            var curtidaExistente = await _context.Curtidas
+                .AnyAsync(c => c.RespostaId == id && c.UsuarioId == userId);
+
+            if (curtidaExistente)
+            {
+                return BadRequest("Você já curtiu esta resposta.");
+            }
+
+            var novaCurtida = new Curtida
+            {
+                UsuarioId = userId,
+                RespostaId = id,
+                Data = DateTime.UtcNow
+            };
+
+            _context.Curtidas.Add(novaCurtida);
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
+
+        // DELETE: api/respostas/{id}/curtir
+        [HttpDelete("{id}/curtir")]
+        [Authorize]
+        public async Task<IActionResult> DescurtirResposta(int id)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            var curtida = await _context.Curtidas
+                .FirstOrDefaultAsync(c => c.RespostaId == id && c.UsuarioId == userId);
+
+            if (curtida == null)
+            {
+                return NotFound("Curtida não encontrada.");
+            }
+
+            _context.Curtidas.Remove(curtida);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 }

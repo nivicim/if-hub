@@ -13,7 +13,7 @@
         public virtual Role Role { get; set; }
         public virtual ICollection<Topico> Topicos { get; set; }
         public virtual ICollection<Resposta> Respostas { get; set; }
-        public virtual ICollection<Curtida> Curtidas { get; set; }
+        public virtual ICollection<Curtida> Curtidas { get; set; } = new List<Curtida>();
         public virtual ICollection<Notificacao> Notificacoes { get; set; }
         public virtual ICollection<LogAcao> LogAcoes { get; set; }
     }
