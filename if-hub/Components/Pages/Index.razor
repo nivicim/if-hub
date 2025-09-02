@@ -40,7 +40,7 @@ else
                         <img src="https://placehold.co/40x40/393E46/EEEEEE?text=@(topico.UsuarioNome?.FirstOrDefault())" alt="Avatar do Utilizador" class="w-10 h-10 rounded-full mr-3">
                         <div>
                             <p class="font-semibold username-text">@topico.UsuarioNome</p>
-                            <p class="text-sm meta-text">em <span class="category-tag">@topico.CategoriaNome</span></p>
+                            <p class="text-sm meta-text">em <a href="@($"/categorias/{topico.CategoriaId}")" class="category-tag hover:underline">@topico.CategoriaNome</a></p>
                         </div>
                     </div>
                     <h2 class="text-xl font-bold mb-2">

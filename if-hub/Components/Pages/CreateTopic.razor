@@ -1,0 +1,127 @@
+﻿@page "/topics/new"
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using if_hub.ViewModels
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Criar Novo Tópico</PageTitle>
+
+<AuthorizeView>
+    <Authorized Context="authContext">
+        <div class="w-full max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold text-[#222831] mb-6">Crie um Novo Tópico</h1>
+
+            <article class="topic-card bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+                @if (categories == null)
+                {
+                    <p><em>Carregando categorias...</em></p>
+                }
+                else
+                {
+                    <EditForm Model="newTopic" OnValidSubmit="HandleCreateTopic">
+                        <DataAnnotationsValidator />
+                        
+                        <div class="space-y-6">
+                            <div>
+                                <label for="titulo" class="block mb-2 text-sm font-medium text-gray-900">Título do Tópico</label>
+                                <InputText id="titulo" @bind-Value="newTopic.Titulo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" placeholder="Qual é a sua dúvida ou ideia?" />
+                                <ValidationMessage For="@(() => newTopic.Titulo)" class="text-red-600 text-sm mt-1" />
+                            </div>
+
+                            <div>
+                                <label for="categoria" class="block mb-2 text-sm font-medium text-gray-900">Categoria</label>
+                                <InputSelect id="categoria" @bind-Value="newTopic.CategoriaId" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition">
+                                    <option value="0" disabled selected>-- Selecione uma categoria --</option>
+                                    @foreach (var category in categories)
+                                    {
+                                        <option value="@category.Id">@category.Nome</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => newTopic.CategoriaId)" class="text-red-600 text-sm mt-1" />
+                            </div>
+
+                            <div>
+                                <label for="conteudo" class="block mb-2 text-sm font-medium text-gray-900">Conteúdos</label>
+                                <InputTextArea id="conteudo" @bind-Value="newTopic.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" rows="10" placeholder="Descreva sua dúvida ou compartilhe seu conhecimento em detalhes aqui." />
+                                <ValidationMessage For="@(() => newTopic.Conteudo)" class="text-red-600 text-sm mt-1" />
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
+                                    <span class="block sm:inline">@errorMessage</span>
+                                </div>
+                            }
+
+                            <div class="flex justify-end gap-4">
+                                <a href="/" class="button-login font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">
+                                    Cancelar
+                                </a>
+                                <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center justify-center">
+                                    <span>Publicar Tópico</span>
+                                </button>
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+            </article>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <p>Você precisa <a href="/login" class="topic-title-link">fazer login</a> para criar um novo tópico.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+
+@code {
+    private CreateTopicViewModel newTopic = new();
+    private List<CategoriaViewModel>? categories;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categories = await Http.GetFromJsonAsync<List<CategoriaViewModel>>("api/categorias");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erro ao carregar categorias: {ex.Message}";
+        }
+    }
+
+    private async Task HandleCreateTopic()
+    {
+        errorMessage = null; 
+
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.PostAsJsonAsync("api/topicos", newTopic);
+
+        Http.DefaultRequestHeaders.Authorization = null;
+
+        if (response.IsSuccessStatusCode)
+        {
+            var createdTopic = await response.Content.ReadFromJsonAsync<TopicDetailViewModel>();
+            if (createdTopic != null)
+            {
+                Navigation.NavigateTo($"/topics/{createdTopic.Id}");
+            }
+        }
+        else
+        {
+            errorMessage = "Ocorreu um erro ao criar o tópico. Verifique os campos e tente novamente.";
+        }
+    }
+}

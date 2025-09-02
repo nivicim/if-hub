@@ -10,5 +10,7 @@
 
         [Required]
         public int TopicoId { get; set; }
+
+        public int? RespostaPaiId { get; set; }
     }
 }

@@ -9,6 +9,7 @@
         public int UsuarioId { get; set; }
         public int TopicoId { get; set; }
         public int? RespostaPaiId { get; set; }
+        public bool Excluida { get; set; } = false;
         public virtual Usuario Usuario { get; set; }
         public virtual Topico Topico { get; set; }
         public virtual Resposta RespostaPai { get; set; }

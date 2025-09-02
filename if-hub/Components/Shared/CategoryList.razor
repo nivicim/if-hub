@@ -1,0 +1,41 @@
+﻿@using if_hub.ViewModels
+@using System.Net.Http.Json
+
+@inject HttpClient Http
+
+<div class="widget bg-white p-6 rounded-xl shadow-lg">
+    <h3 class="text-lg font-semibold widget-title mb-3">Categorias</h3>
+    @if (categorias == null)
+    {
+        <p><em>Carregando categorias...</em></p>
+    }
+    else
+    {
+        <ul class="space-y-2">
+            @foreach (var categoria in categorias)
+            {
+                <li>
+                    <a href="@($"/categorias/{categoria.Id}")" class="category-link-widget hover:text-[#00ADB5] transition duration-150">
+                        @categoria.Nome
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private List<CategoriaViewModel>? categorias;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categorias = await Http.GetFromJsonAsync<List<CategoriaViewModel>>("api/categorias");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao buscar a lista de categorias: {ex.Message}");
+        }
+    }
+}

@@ -21,6 +21,14 @@
     </CascadingAuthenticationState>
     
     <script src="_framework/blazor.web.js"></script>
+    <script>
+        function scrollToElement(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    </script>
 </body>
 
 </html>

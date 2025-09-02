@@ -10,6 +10,7 @@
         public int UsuarioId { get; set; }
         public string? UsuarioNome { get; set; }
         public string? CategoriaNome { get; set; }
+        public int CategoriaId { get; set; }
         public int TotalCurtidas { get; set; }
         public bool UsuarioCurtiu { get; set; }
         public List<RespostaViewModel> Respostas { get; set; } = new();

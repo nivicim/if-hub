@@ -10,5 +10,8 @@
         public string? UsuarioNome { get; set; }
         public int TotalCurtidas { get; set; }
         public bool UsuarioCurtiu { get; set; }
+        public int? RespostaPaiId { get; set; }
+        public bool Excluida { get; set; }
+        public List<RespostaViewModel> RespostasFilhas { get; set; } = new List<RespostaViewModel>();
     }
 }

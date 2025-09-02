@@ -41,6 +41,7 @@
                 Titulo = t.Titulo,
                 UsuarioNome = t.Usuario != null ? t.Usuario.Nome : "Usuário Deletado",
                 CategoriaNome = t.Categoria != null ? t.Categoria.Nome : "Sem Categoria",
+                CategoriaId = t.CategoriaId,
                 TotalRespostas = t.Respostas.Count(),
                 TotalCurtidas = t.Curtidas.Count(),
                 UsuarioCurtiu = userId.HasValue && t.Curtidas.Any(c => c.UsuarioId == userId.Value)
@@ -58,44 +59,65 @@
                 ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
                 : (int?)null;
 
-            var topico = await _context.Topicos
-                .Where(t => t.Id == id)
+            var topicoEntity = await _context.Topicos
                 .Include(t => t.Usuario)
                 .Include(t => t.Categoria)
+                .Include(t => t.Curtidas)
                 .Include(t => t.Respostas).ThenInclude(r => r.Usuario)
                 .Include(t => t.Respostas).ThenInclude(r => r.Curtidas)
-                .Include(t => t.Curtidas)
-                .Select(t => new TopicDetailViewModel
-                {
-                    Id = t.Id,
-                    Titulo = t.Titulo,
-                    Conteudo = t.Conteudo,
-                    DataCriacao = t.DataCriacao,
-                    EditadoEm = t.EditadoEm,
-                    UsuarioId = t.UsuarioId,
-                    UsuarioNome = t.Usuario.Nome,
-                    CategoriaNome = t.Categoria.Nome,
-                    TotalCurtidas = t.Curtidas.Count(),
-                    UsuarioCurtiu = userId.HasValue && t.Curtidas.Any(c => c.UsuarioId == userId.Value),
-                    Respostas = t.Respostas.Select(r => new RespostaViewModel
-                    {
-                        Id = r.Id,
-                        Conteudo = r.Conteudo,
-                        DataCriacao = r.DataCriacao,
-                        EditadoEm = r.EditadoEm,
-                        UsuarioId = r.UsuarioId,
-                        UsuarioNome = r.Usuario.Nome,
-                        TotalCurtidas = r.Curtidas.Count(),
-                        UsuarioCurtiu = userId.HasValue && r.Curtidas.Any(c => c.UsuarioId == userId.Value)
-                    }).ToList()
-                })
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(t => t.Id == id);
 
-            if (topico == null)
+            if (topicoEntity == null)
             {
                 return NotFound();
             }
-            return Ok(topico);
+
+            var topicoViewModel = new TopicDetailViewModel
+            {
+                Id = topicoEntity.Id,
+                Titulo = topicoEntity.Titulo,
+                Conteudo = topicoEntity.Conteudo,
+                DataCriacao = topicoEntity.DataCriacao,
+                EditadoEm = topicoEntity.EditadoEm,
+                UsuarioId = topicoEntity.UsuarioId,
+                UsuarioNome = topicoEntity.Usuario.Nome,
+                CategoriaId = topicoEntity.CategoriaId,
+                CategoriaNome = topicoEntity.Categoria.Nome,
+                TotalCurtidas = topicoEntity.Curtidas.Count(),
+                UsuarioCurtiu = userId.HasValue && topicoEntity.Curtidas.Any(c => c.UsuarioId == userId.Value)
+            };
+
+            var todasAsRespostas = topicoEntity.Respostas.Select(r => new RespostaViewModel
+            {
+                Id = r.Id,
+                UsuarioId = r.UsuarioId,
+                UsuarioNome = r.Excluida ? "Usuário" : r.Usuario.Nome,
+                Conteudo = r.Excluida ? "[Comentário removido]" : r.Conteudo,
+                DataCriacao = r.DataCriacao,
+                EditadoEm = r.EditadoEm,
+                TotalCurtidas = r.Curtidas.Count(),
+                UsuarioCurtiu = userId.HasValue && r.Curtidas.Any(c => c.UsuarioId == userId.Value),
+                RespostaPaiId = r.RespostaPaiId,
+                Excluida = r.Excluida 
+            }).ToList();
+
+            var DicionarioRespostas = todasAsRespostas.ToDictionary(r => r.Id);
+
+            foreach (var resposta in todasAsRespostas)
+            {
+                if (resposta.RespostaPaiId.HasValue && DicionarioRespostas.ContainsKey(resposta.RespostaPaiId.Value))
+                {
+                    DicionarioRespostas[resposta.RespostaPaiId.Value].RespostasFilhas.Add(resposta);
+                }
+                else
+                {
+                    topicoViewModel.Respostas.Add(resposta);
+                }
+            }
+
+            topicoViewModel.Respostas = topicoViewModel.Respostas.OrderBy(r => r.DataCriacao).ToList();
+
+            return Ok(topicoViewModel);
         }
 
         // POST: api/topicos

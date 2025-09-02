@@ -45,7 +45,7 @@
                 DataCriacao = DateTime.UtcNow,
                 TopicoId = respostaViewModel.TopicoId,
                 UsuarioId = userId,
-                RespostaPaiId = null
+                RespostaPaiId = respostaViewModel.RespostaPaiId
             };
 
             _context.Respostas.Add(novaResposta);
@@ -59,17 +59,9 @@
         [Authorize]
         public async Task<IActionResult> DeleteResposta(int id)
         {
-            // Obter o ID do usuário logado
-            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var userRole = User.FindFirstValue(ClaimTypes.Role);
 
-            if (string.IsNullOrEmpty(userIdString))
-            {
-                return Unauthorized();
-            }
-            var userId = int.Parse(userIdString);
-
-            // Encontrar a resposta no banco
             var resposta = await _context.Respostas.FindAsync(id);
 
             if (resposta == null)
@@ -82,10 +74,13 @@
                 return Forbid();
             }
 
-            _context.Respostas.Remove(resposta);
+            resposta.Excluida = true;
+
+            resposta.Conteudo = "[Comentário removido pelo autor ou moderador]";
+
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return NoContent(); 
         }
 
         // PUT: api/respostas/x
