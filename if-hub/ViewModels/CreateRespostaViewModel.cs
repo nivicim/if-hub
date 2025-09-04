@@ -7,10 +7,12 @@
         [Required]
         [StringLength(10000, MinimumLength = 1)]
         public string Conteudo { get; set; }
-
+        
         [Required]
         public int TopicoId { get; set; }
-
+       
         public int? RespostaPaiId { get; set; }
+
+        public IFormFile? Anexo { get; set; }
     }
 }

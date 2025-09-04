@@ -14,5 +14,6 @@
         public int TotalCurtidas { get; set; }
         public bool UsuarioCurtiu { get; set; }
         public List<RespostaViewModel> Respostas { get; set; } = new();
+        public List<AnexoViewModel> Anexos { get; set; } = new();
     }
 }

@@ -15,5 +15,6 @@
         public virtual Resposta RespostaPai { get; set; }
         public virtual ICollection<Resposta> RespostasFilhas { get; set; }
         public virtual ICollection<Curtida> Curtidas { get; set; } = new List<Curtida>();
+        public virtual ICollection<Anexo> Anexos { get; set; } = new List<Anexo>();
     }
 }

@@ -14,5 +14,6 @@
         public virtual ICollection<Resposta> Respostas { get; set; }
         public virtual ICollection<Curtida> Curtidas { get; set; } = new List<Curtida>();
         public virtual ICollection<TopicoTag> TopicoTags { get; set; }
+        public virtual ICollection<Anexo> Anexos { get; set; } = new List<Anexo>();
     }
 }

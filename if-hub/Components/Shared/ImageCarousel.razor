@@ -1,0 +1,38 @@
+﻿@using if_hub.ViewModels
+@inject IJSRuntime JSRuntime
+
+<div class="@CssClass swiper rounded-lg shadow-lg">
+    <div class="swiper-wrapper">
+        @foreach (var imagem in Imagens)
+        {
+            <div class="swiper-slide">
+                <a href="@imagem.Url" data-fancybox="topic-gallery" data-caption="@imagem.NomeArquivo" data-no-nav>
+                    <img src="@imagem.Url" alt="@imagem.NomeArquivo" class="w-full h-96 object-contain bg-gray-200" />
+                </a>
+            </div>
+        }
+    </div>
+    <div class="swiper-button-next"></div>
+    <div class="swiper-button-prev"></div>
+    <div class="swiper-pagination"></div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public List<AnexoViewModel> Imagens { get; set; } = new();
+
+    private string _swiperSelector = $"swiper-container-{Guid.NewGuid()}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Imagens.Any())
+        {
+            await JSRuntime.InvokeVoidAsync("initializeSwiper", $".{_swiperSelector}");
+        }
+    }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> AdditionalAttributes { get; set; } = new();
+
+    private string CssClass => AdditionalAttributes.TryGetValue("class", out var css) ? $"{css} {_swiperSelector}" : _swiperSelector;
+}

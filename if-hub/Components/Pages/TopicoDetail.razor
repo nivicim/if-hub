@@ -3,6 +3,7 @@
 @using System.Net.Http.Headers
 @using if_hub.ViewModels
 @using if_hub.Entities
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 
@@ -18,6 +19,7 @@ else
 {
     <PageTitle>@topic.Titulo</PageTitle>
 
+    @* Seção do Tópico Principal *@
     <article class="topic-card bg-white p-6 rounded-xl shadow-lg mb-8">
         <div class="flex items-start sm:items-center mb-3 flex-col sm:flex-row">
             <img src="https://placehold.co/40x40/00ADB5/EEEEEE?text=@(topic.UsuarioNome?.FirstOrDefault())" alt="Avatar do Utilizador" class="w-10 h-10 rounded-full mr-0 sm:mr-3 mb-2 sm:mb-0">
@@ -35,9 +37,34 @@ else
             </div>
         }
 
-        <div class="prose max-w-none paragraph-text leading-relaxed pt-4">
+        @{
+            var imagensDoTopico = topic.Anexos.Where(a => a.IsCarouselImage).ToList();
+            var outrosAnexos = topic.Anexos.Where(a => !a.IsCarouselImage).ToList();
+        }
+
+        @if (imagensDoTopico.Any())
+        {
+            <div class="mb-6">
+                <ImageCarousel Imagens="imagensDoTopico" />
+            </div>
+        }
+
+        <div class="prose max-w-none paragraph-text leading-relaxed pt-4 break-words">
             @((MarkupString)topic.Conteudo.Replace("\n", "<br/>"))
         </div>
+
+        @if (outrosAnexos.Any())
+        {
+            <div class="mt-4 p-4 bg-gray-50 border rounded-lg">
+                <h4 class="font-semibold text-sm mb-2">Anexos:</h4>
+                <ul class="list-disc list-inside space-y-1">
+                    @foreach (var anexo in outrosAnexos)
+                    {
+                        <li><a href="@anexo.Url" target="_blank" class="topic-title-link text-sm">@anexo.NomeArquivo</a></li>
+                    }
+                </ul>
+            </div>
+        }
 
         <div class="flex items-center text-sm meta-text mt-4 pt-4 border-t border-gray-100">
             <AuthorizeView>
@@ -56,6 +83,7 @@ else
         </div>
     </article>
 
+    @* Seção das Respostas *@
     <h3 class="text-2xl font-semibold text-[#222831] mb-4">Respostas</h3>
     <div class="space-y-6">
         @foreach (var resposta in topic.Respostas)
@@ -64,6 +92,7 @@ else
         }
     </div>
 
+    @* Formulário para Nova Resposta *@
     <div class="mt-8" id="reply-form">
         <AuthorizeView Context="authContext">
             <Authorized>
@@ -83,11 +112,16 @@ else
                     {
                         <h3 class="text-lg font-semibold widget-title mb-3">Deixe sua Resposta</h3>
                     }
-
                     <EditForm Model="newReply" OnValidSubmit="HandleSubmitReply">
                         <DataAnnotationsValidator />
                         <InputTextArea @bind-Value="newReply.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg" rows="5" placeholder="Digite sua resposta aqui..."></InputTextArea>
                         <ValidationMessage For="@(() => newReply.Conteudo)" />
+
+                        <div class="mt-4">
+                            <label for="anexo-resposta" class="block mb-2 text-sm font-medium text-gray-900">Anexo (Opcional)</label>
+                            <InputFile id="anexo-resposta" OnChange="LoadFileForReply" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
+                        </div>
+
                         <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg w-full mt-4">
                             <span>Enviar Resposta</span>
                         </button>
@@ -111,6 +145,7 @@ else
     private int? replyingToReplyId = null;
     private TopicDetailViewModel? topic;
     private CreateRespostaViewModel newReply = new();
+    private IBrowserFile? uploadedFileForReply;
     private bool isOwner = false;
     private string? loggedInUserId;
     private string? parentReplyContentPreview = null;
@@ -121,27 +156,35 @@ else
     {
         await LoadTopicAndCheckOwnership();
     }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeFancybox");
+        }
+    }
 
     private async Task LoadTopicAndCheckOwnership()
     {
         try
         {
             var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-           
+
             if (!string.IsNullOrEmpty(token))
             {
                 Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             }
-           
+
             topic = await Http.GetFromJsonAsync<TopicDetailViewModel>($"/api/topicos/{TopicId}");
-           
+
             Http.DefaultRequestHeaders.Authorization = null;
-           
+
             if (topic != null && AuthenticationStateTask != null)
             {
                 var authState = await AuthenticationStateTask;
                 var user = authState.User;
-               
+
                 if (user.Identity is { IsAuthenticated: true })
                 {
                     loggedInUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -153,28 +196,30 @@ else
     }
 
     public bool IsEditing(int replyId) => editingReplyId == replyId;
-    
+
     public bool IsOwnerOfReply(RespostaViewModel resposta) => loggedInUserId == resposta.UsuarioId.ToString();
-    
+
     public UpdateRespostaViewModel GetUpdateReplyModel() => updateReplyModel;
 
     public async Task ToggleTopicLike()
     {
         if (topic is null) return;
-        
         var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        
         if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
-        
+
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        
+
         var response = topic.UsuarioCurtiu
             ? await Http.DeleteAsync($"api/topicos/{topic.Id}/curtir")
             : await Http.PostAsJsonAsync($"api/topicos/{topic.Id}/curtir", new { });
-       
-            Http.DefaultRequestHeaders.Authorization = null;
-        
-            if (response.IsSuccessStatusCode) { await LoadTopicAndCheckOwnership(); }
+
+        Http.DefaultRequestHeaders.Authorization = null;
+
+        if (response.IsSuccessStatusCode)
+        {
+            topic.UsuarioCurtiu = !topic.UsuarioCurtiu;
+            topic.TotalCurtidas += topic.UsuarioCurtiu ? 1 : -1;
+        }
     }
 
     public async Task ToggleReplyLike(RespostaViewModel resposta)
@@ -217,46 +262,73 @@ else
     public void CancelReplyToReply()
     {
         replyingToReplyId = null;
-        parentReplyContentPreview = null; 
+        parentReplyContentPreview = null;
         newReply.Conteudo = string.Empty;
     }
 
     public async Task HandleSubmitReply()
     {
-        newReply.TopicoId = TopicId;
-        newReply.RespostaPaiId = replyingToReplyId; 
-
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        if (string.IsNullOrEmpty(token)) return;
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var response = await Http.PostAsJsonAsync("/api/respostas", newReply);
-        Http.DefaultRequestHeaders.Authorization = null;
-
-        if (response.IsSuccessStatusCode)
+        try
         {
-            newReply.Conteudo = string.Empty;
-            replyingToReplyId = null; 
-            await LoadTopicAndCheckOwnership(); 
+            newReply.TopicoId = TopicId;
+            newReply.RespostaPaiId = replyingToReplyId;
+
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(newReply.Conteudo), "Conteudo");
+            content.Add(new StringContent(newReply.TopicoId.ToString()), "TopicoId");
+            if (newReply.RespostaPaiId.HasValue)
+            {
+                content.Add(new StringContent(newReply.RespostaPaiId.Value.ToString()), "RespostaPaiId");
+            }
+
+            if (uploadedFileForReply != null)
+            {
+                var fileContent = new StreamContent(uploadedFileForReply.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(uploadedFileForReply.ContentType);
+                content.Add(fileContent, "Anexo", uploadedFileForReply.Name);
+            }
+
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.PostAsync("/api/respostas", content);
+            Http.DefaultRequestHeaders.Authorization = null;
+
+            if (response.IsSuccessStatusCode)
+            {
+                newReply = new CreateRespostaViewModel();
+                uploadedFileForReply = null;
+                replyingToReplyId = null;
+                await LoadTopicAndCheckOwnership();
+            }
+        }
+        catch (IOException ex)
+        {
+            Console.WriteLine($"Erro de anexo: Um dos arquivos excede o limite de 10 MB. Detalhes: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro inesperado: {ex.Message}");
         }
     }
 
     public async Task HandleDeleteTopic()
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir este tópico?");
-        
+
         if (confirmed)
         {
             var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            
+
             if (string.IsNullOrEmpty(token)) return;
-            
+
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            
+
             var response = await Http.DeleteAsync($"/api/topicos/{TopicId}");
-            
+
             Http.DefaultRequestHeaders.Authorization = null;
-            
+
             if (response.IsSuccessStatusCode) { Navigation.NavigateTo("/"); }
         }
     }
@@ -275,17 +347,17 @@ else
     public async Task HandleUpdateReply()
     {
         if (editingReplyId == null) return;
-       
+
         var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        
+
         if (string.IsNullOrEmpty(token)) return;
-        
+
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-       
+
         var response = await Http.PutAsJsonAsync($"/api/respostas/{editingReplyId}", updateReplyModel);
-       
+
         Http.DefaultRequestHeaders.Authorization = null;
-        
+
         if (response.IsSuccessStatusCode)
         {
             editingReplyId = null;
@@ -346,4 +418,9 @@ else
             }
         }
     }
+    private void LoadFileForReply(InputFileChangeEventArgs e)
+    {
+        uploadedFileForReply = e.File;
+    }
+
 }

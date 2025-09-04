@@ -2,105 +2,210 @@
 @using System.Net.Http.Json
 @using System.Net.Http.Headers
 @using if_hub.ViewModels
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 
 <PageTitle>Editando Tópico</PageTitle>
 
-@if (topicModel == null)
-{
-    <p><em>Carregando tópico para edição...</em></p>
-}
-else
-{
-    <div class="w-full max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold text-[#222831] mb-6">Editando Tópico</h1>
+<AuthorizeView Context="authContext">
+    <Authorized>
+        @if (topicModel == null)
+        {
+            <p><em>Carregando informações do tópico...</em></p>
+        }
+        else
+        {
+            <div class="w-full max-w-4xl mx-auto">
+                <h1 class="text-3xl font-bold text-[#222831] mb-6">Editando Tópico</h1>
 
-        <article class="topic-card bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-            <EditForm Model="topicModel" OnValidSubmit="HandleUpdateTopic">
-                <DataAnnotationsValidator />
+                <article class="topic-card bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+                    <EditForm Model="topicModel" OnValidSubmit="HandleUpdateTopic">
+                        <DataAnnotationsValidator />
+                        <div class="space-y-6">
+                            <div>
+                                <label for="titulo" class="block mb-2 text-sm font-medium text-gray-900">Título</label>
+                                <InputText id="titulo" @bind-Value="topicModel.Titulo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" />
+                                <ValidationMessage For="@(() => topicModel.Titulo)" class="text-red-600 text-sm mt-1" />
+                            </div>
+                            <div>
+                                <label for="conteudo" class="block mb-2 text-sm font-medium text-gray-900">Conteúdo</label>
+                                <InputTextArea id="conteudo" @bind-Value="topicModel.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" rows="10" />
+                                <ValidationMessage For="@(() => topicModel.Conteudo)" class="text-red-600 text-sm mt-1" />
+                            </div>
 
-                <div class="space-y-6">
-                    <div>
-                        <label for="titulo" class="block mb-2 text-sm font-medium text-gray-900">Título</label>
-                        <InputText id="titulo" @bind-Value="topicModel.Titulo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" />
-                        <ValidationMessage For="@(() => topicModel.Titulo)" />
-                    </div>
+                            @{
+                                var currentImages = currentAttachments.Where(a => a.TipoConteudo.StartsWith("image/")).ToList();
+                                var otherAttachments = currentAttachments.Where(a => !a.TipoConteudo.StartsWith("image/")).ToList();
+                            }
 
-                    <div>
-                        <label for="conteudo" class="block mb-2 text-sm font-medium text-gray-900">Conteúdo</label>
-                        <InputTextArea id="conteudo" @bind-Value="topicModel.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" rows="10" />
-                        <ValidationMessage For="@(() => topicModel.Conteudo)" />
-                    </div>
+                            @if (currentImages.Any())
+                            {
+                                <div>
+                                    <label class="block mb-2 text-sm font-medium text-gray-900">Imagens Atuais (Clique no X para remover)</label>
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach (var anexo in currentImages)
+                                        {
+                                            <div class="relative">
+                                                <img src="@anexo.Url" class="h-24 w-24 object-cover rounded-lg" />
+                                                <button type="button" @onclick="() => DeleteAttachment(anexo.Id)" class="absolute top-0 right-0 m-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">&times;</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
 
-                    <div class="flex gap-4">
-                        <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex-grow">
-                            <span>Salvar Alterações</span>
-                        </button>
-                        <a href="@($"/topics/{TopicId}")" class="button-login font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">
-                            Cancelar
-                        </a>
-                    </div>
-                </div>
-            </EditForm>
-        </article>
-    </div>
-}
+                            @if (otherAttachments.Any())
+                            {
+                                <div>
+                                    <label class="block mb-2 text-sm font-medium text-gray-900">Outros Anexos (Clique no X para remover)</label>
+                                    <div class="space-y-2">
+                                        @foreach (var anexo in otherAttachments)
+                                        {
+                                            <div class="flex items-center justify-between p-2 bg-gray-100 rounded-lg">
+                                                <span class="text-sm">@anexo.NomeArquivo</span>
+                                                <button type="button" @onclick="() => DeleteAttachment(anexo.Id)" class="text-red-500 hover:text-red-700 font-bold text-lg leading-none">&times;</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            <div>
+                                <label for="imagens" class="block mb-2 text-sm font-medium text-gray-900">Adicionar Novas Imagens</label>
+                                <InputFile id="imagens" OnChange="LoadCarouselImages" multiple accept="image/*" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label for="anexos" class="block mb-2 text-sm font-medium text-gray-900">Adicionar Outros Anexos</label>
+                                <InputFile id="anexos" OnChange="LoadOtherFiles" multiple class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                                    @errorMessage
+                                </div>
+                            }
+
+                            <div class="flex justify-end gap-4">
+                                <a href="@($"/topics/{TopicId}")" class="button-login font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">Cancelar</a>
+                                <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">Salvar Alterações</button>
+                            </div>
+                        </div>
+                    </EditForm>
+                </article>
+            </div>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <p>Você precisa <a href="/login" class="topic-title-link">fazer login</a> para editar este tópico.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
 
 @code {
     [Parameter]
     public int TopicId { get; set; }
 
     private UpdateTopicViewModel topicModel = new();
+    private List<AnexoViewModel> currentAttachments = new();
+    private List<IBrowserFile> newImages = new();
+    private List<IBrowserFile> newOtherFiles = new();
+    private string? errorMessage;
 
-    // No carregamento, buscamos os dados atuais do tópico para preencher o formulário
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var currentTopic = await Http.GetFromJsonAsync<TopicDetailViewModel>($"/api/topicos/{TopicId}");
-            if (currentTopic != null)
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var topicDetail = await Http.GetFromJsonAsync<TopicDetailViewModel>($"api/topicos/{TopicId}");
+
+            Http.DefaultRequestHeaders.Authorization = null;
+
+            if (topicDetail != null)
             {
-                // Preenchemos o ViewModel com os dados do tópico a ser editado
-                topicModel.Titulo = currentTopic.Titulo;
-                topicModel.Conteudo = currentTopic.Conteudo;
+                topicModel.Titulo = topicDetail.Titulo;
+                topicModel.Conteudo = topicDetail.Conteudo;
+                currentAttachments = topicDetail.Anexos;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Console.WriteLine($"Erro ao buscar tópico para edição: {ex.Message}");
+            errorMessage = "Não foi possível carregar os dados do tópico.";
+        }
+    }
+
+    private void LoadCarouselImages(InputFileChangeEventArgs e) => newImages.AddRange(e.GetMultipleFiles(maximumFileCount: 10));
+    private void LoadOtherFiles(InputFileChangeEventArgs e) => newOtherFiles.AddRange(e.GetMultipleFiles(maximumFileCount: 10));
+
+    private async Task DeleteAttachment(int anexoId)
+    {
+        errorMessage = null;
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.DeleteAsync($"api/anexos/{anexoId}");
+
+        Http.DefaultRequestHeaders.Authorization = null;
+
+        if (response.IsSuccessStatusCode)
+        {
+            currentAttachments.RemoveAll(a => a.Id == anexoId);
+        }
+        else
+        {
+            errorMessage = "Não foi possível remover o anexo.";
         }
     }
 
     private async Task HandleUpdateTopic()
     {
+        errorMessage = null;
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(topicModel.Titulo), "Titulo");
+        content.Add(new StringContent(topicModel.Conteudo), "Conteudo");
+
         try
         {
-            // Pegamos o token para autenticar a requisição
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (string.IsNullOrEmpty(token)) return;
-
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            // Enviamos a requisição PUT com os dados atualizados
-            var response = await Http.PutAsJsonAsync($"/api/topicos/{TopicId}", topicModel);
-
-            Http.DefaultRequestHeaders.Authorization = null;
-
-            if (response.IsSuccessStatusCode)
+            foreach (var file in newImages)
             {
-                // Se funcionou, volta para a página do tópico
-                Navigation.NavigateTo($"/topics/{TopicId}");
+                var fileContent = new StreamContent(file.OpenReadStream(10 * 1024 * 1024));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+                content.Add(fileContent, "Imagens", file.Name);
             }
-            else
+            foreach (var file in newOtherFiles)
             {
-                Console.WriteLine("Erro ao atualizar o tópico. Status: " + response.StatusCode);
+                var fileContent = new StreamContent(file.OpenReadStream(10 * 1024 * 1024));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+                content.Add(fileContent, "OutrosAnexos", file.Name);
             }
         }
-        catch (Exception ex)
+        catch (IOException)
         {
-            Console.WriteLine($"Erro ao conectar com a API: {ex.Message}");
+            errorMessage = "Um ou mais arquivos excedem o limite de tamanho de 10MB.";
+            return;
+        }
+
+        var response = await Http.PutAsync($"api/topicos/{TopicId}", content);
+        Http.DefaultRequestHeaders.Authorization = null;
+
+        if (response.IsSuccessStatusCode)
+        {
+            Navigation.NavigateTo($"/topics/{TopicId}");
+        }
+        else
+        {
+            errorMessage = "Ocorreu um erro ao salvar as alterações.";
         }
     }
 }

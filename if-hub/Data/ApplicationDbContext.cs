@@ -19,6 +19,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<LogAcao> LogAcoes { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<TopicoTag> TopicoTags { get; set; }
+    public DbSet<Anexo> Anexos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -79,6 +80,20 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(tt => tt.Tag)
                   .WithMany(t => t.TopicoTags)
                   .HasForeignKey(tt => tt.TagId);
+        });
+
+        // --- Anexo Configuration (for relationships) ---
+        modelBuilder.Entity<Anexo>(entity =>
+        {
+            entity.HasOne(a => a.Topico)
+                  .WithMany(t => t.Anexos)
+                  .HasForeignKey(a => a.TopicoId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(a => a.Resposta)
+                  .WithMany(r => r.Anexos)
+                  .HasForeignKey(a => a.RespostaId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         var seedDate = new DateTime(2025, 6, 22, 20, 30, 0, DateTimeKind.Utc);

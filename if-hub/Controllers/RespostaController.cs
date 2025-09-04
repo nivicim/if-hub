@@ -2,6 +2,7 @@
 {
     using if_hub.Entities;
     using if_hub.ViewModels;
+    using if_hub.Services;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
@@ -13,32 +14,21 @@
     public class RespostasController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IFileStorageService _fileStorageService;
 
-        public RespostasController(ApplicationDbContext context)
+        public RespostasController(ApplicationDbContext context, IFileStorageService fileStorageService)
         {
             _context = context;
+            _fileStorageService = fileStorageService; 
         }
 
         // POST: api/respostas
         [HttpPost]
-        public async Task<IActionResult> CreateResposta(CreateRespostaViewModel respostaViewModel)
+        [Authorize]
+        public async Task<IActionResult> CreateResposta([FromForm] CreateRespostaViewModel respostaViewModel)
         {
-            // Obter o ID do usuário logado a partir do token
-            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdString))
-            {
-                return Unauthorized();
-            }
-            var userId = int.Parse(userIdString);
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-            // Verificar se o tópico ao qual se está respondendo realmente existe
-            var topicoExiste = await _context.Topicos.AnyAsync(t => t.Id == respostaViewModel.TopicoId);
-            if (!topicoExiste)
-            {
-                return BadRequest("O tópico especificado não existe.");
-            }
-
-            // Criar a nova entidade Resposta
             var novaResposta = new Resposta
             {
                 Conteudo = respostaViewModel.Conteudo,
@@ -48,10 +38,27 @@
                 RespostaPaiId = respostaViewModel.RespostaPaiId
             };
 
+            // Lógica para salvar o anexo, se ele existir
+            if (respostaViewModel.Anexo != null)
+            {
+                var anexoUrl = await _fileStorageService.SaveFileAsync(respostaViewModel.Anexo);
+
+                var novoAnexo = new Anexo
+                {
+                    NomeArquivo = respostaViewModel.Anexo.FileName,
+                    Url = anexoUrl,
+                    TipoConteudo = respostaViewModel.Anexo.ContentType,
+                    TamanhoEmBytes = respostaViewModel.Anexo.Length,
+                    DataUpload = DateTime.UtcNow,
+                };
+
+                novaResposta.Anexos.Add(novoAnexo);
+            }
+
             _context.Respostas.Add(novaResposta);
             await _context.SaveChangesAsync();
 
-            return StatusCode(201, novaResposta);
+            return Ok();
         }
 
         // DELETE: api/respostas/x

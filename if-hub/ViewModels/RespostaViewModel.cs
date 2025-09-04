@@ -13,5 +13,6 @@
         public int? RespostaPaiId { get; set; }
         public bool Excluida { get; set; }
         public List<RespostaViewModel> RespostasFilhas { get; set; } = new List<RespostaViewModel>();
+        public List<AnexoViewModel> Anexos { get; set; } = new();
     }
 }

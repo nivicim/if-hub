@@ -1,6 +1,7 @@
 ﻿namespace if_hub.Controllers
 {
     using if_hub.Entities;
+    using if_hub.Services;
     using if_hub.ViewModels;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
@@ -13,9 +14,12 @@
     {
         private readonly ApplicationDbContext _context;
 
-        public TopicosController(ApplicationDbContext context)
+        private readonly IFileStorageService _fileStorageService;
+
+        public TopicosController(ApplicationDbContext context, IFileStorageService fileStorageService)
         {
             _context = context;
+            _fileStorageService = fileStorageService;
         }
 
         // GET: api/topicos
@@ -65,6 +69,8 @@
                 .Include(t => t.Curtidas)
                 .Include(t => t.Respostas).ThenInclude(r => r.Usuario)
                 .Include(t => t.Respostas).ThenInclude(r => r.Curtidas)
+                .Include(t => t.Anexos) 
+                .Include(t => t.Respostas).ThenInclude(r => r.Anexos)
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (topicoEntity == null)
@@ -84,7 +90,15 @@
                 CategoriaId = topicoEntity.CategoriaId,
                 CategoriaNome = topicoEntity.Categoria.Nome,
                 TotalCurtidas = topicoEntity.Curtidas.Count(),
-                UsuarioCurtiu = userId.HasValue && topicoEntity.Curtidas.Any(c => c.UsuarioId == userId.Value)
+                UsuarioCurtiu = userId.HasValue && topicoEntity.Curtidas.Any(c => c.UsuarioId == userId.Value),
+                        Anexos = topicoEntity.Anexos.Select(a => new AnexoViewModel
+                        {
+                            Id = a.Id,
+                            NomeArquivo = a.NomeArquivo,
+                            Url = a.Url,
+                            TipoConteudo = a.TipoConteudo,
+                            IsCarouselImage = a.IsCarouselImage
+                        }).ToList()
             };
 
             var todasAsRespostas = topicoEntity.Respostas.Select(r => new RespostaViewModel
@@ -98,7 +112,15 @@
                 TotalCurtidas = r.Curtidas.Count(),
                 UsuarioCurtiu = userId.HasValue && r.Curtidas.Any(c => c.UsuarioId == userId.Value),
                 RespostaPaiId = r.RespostaPaiId,
-                Excluida = r.Excluida 
+                Excluida = r.Excluida,
+                Anexos = r.Anexos.Select(a => new AnexoViewModel
+                {
+                    Id = a.Id,
+                    NomeArquivo = a.NomeArquivo,
+                    Url = a.Url,
+                    TipoConteudo = a.TipoConteudo,
+                    IsCarouselImage = a.IsCarouselImage
+                }).ToList()
             }).ToList();
 
             var DicionarioRespostas = todasAsRespostas.ToDictionary(r => r.Id);
@@ -123,14 +145,9 @@
         // POST: api/topicos
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> CreateTopico(CreateTopicViewModel topicViewModel)
+        public async Task<IActionResult> CreateTopico([FromBody] CreateTopicViewModel topicViewModel)
         {
-            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdString))
-            {
-                return Unauthorized();
-            }
-            var userId = int.Parse(userIdString);
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
             var novoTopico = new Topico
             {
@@ -141,10 +158,40 @@
                 UsuarioId = userId
             };
 
+            // Processa a lista de Imagens do Carrossel
+            if (topicViewModel.Imagens != null)
+            {
+                foreach (var anexo in topicViewModel.Imagens)
+                {
+                    novoTopico.Anexos.Add(new Anexo
+                    {
+                        Url = anexo.Url,
+                        NomeArquivo = anexo.NomeArquivo,
+                        TipoConteudo = anexo.TipoConteudo,
+                        IsCarouselImage = true 
+                    });
+                }
+            }
+
+            // Processa a lista de Outros Anexos
+            if (topicViewModel.OutrosAnexos != null)
+            {
+                foreach (var anexo in topicViewModel.OutrosAnexos)
+                {
+                    novoTopico.Anexos.Add(new Anexo
+                    {
+                        Url = anexo.Url,
+                        NomeArquivo = anexo.NomeArquivo,
+                        TipoConteudo = anexo.TipoConteudo,
+                        IsCarouselImage = false 
+                    });
+                }
+            }
+
             _context.Topicos.Add(novoTopico);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetTopico), new { id = novoTopico.Id }, novoTopico);
+            return Ok(new { id = novoTopico.Id });
         }
 
         // DELETE: api/topicos/x
@@ -181,18 +228,12 @@
         // PUT: api/topicos/5
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<IActionResult> UpdateTopico(int id, UpdateTopicViewModel topicViewModel)
+        public async Task<IActionResult> UpdateTopico(int id, [FromForm] UpdateTopicViewModel topicViewModel)
         {
-            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var userRole = User.FindFirstValue(ClaimTypes.Role);
 
-            if (string.IsNullOrEmpty(userIdString))
-            {
-                return Unauthorized();
-            }
-            var userId = int.Parse(userIdString);
-
-            var topico = await _context.Topicos.FindAsync(id);
+            var topico = await _context.Topicos.Include(t => t.Anexos).FirstOrDefaultAsync(t => t.Id == id);
 
             if (topico == null)
             {
@@ -204,9 +245,42 @@
                 return Forbid();
             }
 
+            // Atualiza os campos de texto
             topico.Titulo = topicViewModel.Titulo;
             topico.Conteudo = topicViewModel.Conteudo;
             topico.EditadoEm = DateTime.UtcNow;
+
+            // Processa a lista de novas Imagens
+            if (topicViewModel.Imagens != null && topicViewModel.Imagens.Any())
+            {
+                foreach (var file in topicViewModel.Imagens)
+                {
+                    var anexoUrl = await _fileStorageService.SaveFileAsync(file);
+                    topico.Anexos.Add(new Anexo
+                    {
+                        NomeArquivo = file.FileName,
+                        Url = anexoUrl,
+                        TipoConteudo = file.ContentType,
+                        TamanhoEmBytes = file.Length
+                    });
+                }
+            }
+
+            // Processa a lista de Outros Anexos
+            if (topicViewModel.OutrosAnexos != null && topicViewModel.OutrosAnexos.Any())
+            {
+                foreach (var file in topicViewModel.OutrosAnexos)
+                {
+                    var anexoUrl = await _fileStorageService.SaveFileAsync(file);
+                    topico.Anexos.Add(new Anexo
+                    {
+                        NomeArquivo = file.FileName,
+                        Url = anexoUrl,
+                        TipoConteudo = file.ContentType,
+                        TamanhoEmBytes = file.Length
+                    });
+                }
+            }
 
             await _context.SaveChangesAsync();
 

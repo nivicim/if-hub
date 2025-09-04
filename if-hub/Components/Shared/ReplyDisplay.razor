@@ -51,6 +51,38 @@
             </div>
         }
 
+        @if (Resposta.Anexos != null && Resposta.Anexos.Any())
+        {
+
+            var imagensDaResposta = Resposta.Anexos.Where(a => a.TipoConteudo.StartsWith("image/")).ToList();
+            var outrosAnexos = Resposta.Anexos.Where(a => !a.TipoConteudo.StartsWith("image/")).ToList();
+
+
+            @if (imagensDaResposta.Any())
+            {
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach (var anexo in imagensDaResposta)
+                    {
+                        <a href="@anexo.Url" data-fancybox="reply-gallery-@Resposta.Id" data-caption="@anexo.NomeArquivo" data-no-nav>
+                            <img src="@anexo.Url" alt="@anexo.NomeArquivo" class="max-w-[120px] max-h-24 rounded shadow-sm hover:shadow-md transition-shadow" />
+                        </a>
+                    }
+                </div>
+            }
+            @if (outrosAnexos.Any())
+            {
+                <div class="mt-3 p-3 bg-gray-50 border rounded-lg">
+                    <h5 class="font-semibold text-xs mb-1">Anexos:</h5>
+                    <ul class="list-disc list-inside space-y-1">
+                        @foreach (var anexo in outrosAnexos)
+                        {
+                            <li><a href="@anexo.Url" target="_blank" class="topic-title-link text-xs">@anexo.NomeArquivo</a></li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+
         <div class="flex items-center justify-end gap-4 mt-2 pt-2 border-t">
             <AuthorizeView>
                 <Authorized>

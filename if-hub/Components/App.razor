@@ -10,6 +10,8 @@
     <title>iF-Hub</title> 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <link rel="stylesheet"href="https://cdn.jsdelivr.net/npm/@@fancyapps/ui@6.0/dist/fancybox/fancybox.css" />
     <link href="app.css" rel="stylesheet" />
     <link rel="stylesheet" href="if-hub.styles.css" />
     <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
@@ -21,6 +23,8 @@
     </CascadingAuthenticationState>
     
     <script src="_framework/blazor.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@fancyapps/ui@6.0/dist/fancybox/fancybox.umd.js"></script>
     <script>
         function scrollToElement(elementId) {
             const element = document.getElementById(elementId);
@@ -28,6 +32,18 @@
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
+
+        function initializeSwiper(selector) {
+            const swiper = new Swiper(selector, {
+                navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+                pagination: { el: '.swiper-pagination', clickable: true },
+            });
+        }
+        function initializeFancybox() {
+            Fancybox.bind("[data-fancybox]", {
+            });
+        }
+
     </script>
 </body>
 
