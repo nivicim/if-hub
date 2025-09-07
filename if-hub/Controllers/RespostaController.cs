@@ -28,6 +28,7 @@
         public async Task<IActionResult> CreateResposta([FromForm] CreateRespostaViewModel respostaViewModel)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var usuarioQueRespondeu = await _context.Usuarios.FindAsync(userId);
 
             var novaResposta = new Resposta
             {
@@ -56,6 +57,37 @@
             }
 
             _context.Respostas.Add(novaResposta);
+
+            var topico = await _context.Topicos.FindAsync(respostaViewModel.TopicoId);
+
+            // Notifica o dono do TÓPICO, se não for ele mesmo respondendo
+            if (topico.UsuarioId != userId)
+            {
+                var notificacaoTopico = new Notificacao
+                {
+                    UsuarioId = topico.UsuarioId,
+                    Mensagem = $"{usuarioQueRespondeu.Nome} respondeu ao seu tópico '{topico.Titulo}'.",
+                    LinkId = topico.Id
+                };
+                _context.Notificacoes.Add(notificacaoTopico);
+            }
+
+            // Notifica o dono da RESPOSTA PAI, se houver e não for ele mesmo ou o dono do tópico
+            if (respostaViewModel.RespostaPaiId.HasValue)
+            {
+                var respostaPai = await _context.Respostas.FindAsync(respostaViewModel.RespostaPaiId.Value);
+                if (respostaPai.UsuarioId != userId && respostaPai.UsuarioId != topico.UsuarioId)
+                {
+                    var notificacaoResposta = new Notificacao
+                    {
+                        UsuarioId = respostaPai.UsuarioId,
+                        Mensagem = $"{usuarioQueRespondeu.Nome} respondeu ao seu comentário.",
+                        LinkId = topico.Id 
+                    };
+                    _context.Notificacoes.Add(notificacaoResposta);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok();
@@ -133,6 +165,7 @@
         public async Task<IActionResult> CurtirResposta(int id)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var usuarioQueCurtiu = await _context.Usuarios.FindAsync(userId);
 
             var resposta = await _context.Respostas.FindAsync(id);
             if (resposta == null)
@@ -156,6 +189,19 @@
             };
 
             _context.Curtidas.Add(novaCurtida);
+
+            // Notifica o dono do tópico, se não for ele mesmo curtindo
+            if (resposta.UsuarioId != userId)
+            {
+                var notificacao = new Notificacao
+                {
+                    UsuarioId = resposta.UsuarioId,
+                    Mensagem = $"{usuarioQueCurtiu.Nome} curtiu sua resposta ao tópico '{resposta.Topico.Titulo}'.",
+                    LinkId = resposta.Id
+                };
+                _context.Notificacoes.Add(notificacao);
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok();

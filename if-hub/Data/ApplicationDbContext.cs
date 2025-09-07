@@ -96,6 +96,15 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // --- Notificacao Configuration (for relationships) ---
+        modelBuilder.Entity<Notificacao>(entity =>
+        {
+            entity.HasOne(n => n.Usuario)
+                  .WithMany() // Um usuário pode ter muitas notificações
+                  .HasForeignKey(n => n.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
         var seedDate = new DateTime(2025, 6, 22, 20, 30, 0, DateTimeKind.Utc);
 
         // 1. Popular a tabela de Roles

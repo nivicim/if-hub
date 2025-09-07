@@ -293,6 +293,7 @@
         public async Task<IActionResult> CurtirTopico(int id)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var usuarioQueCurtiu = await _context.Usuarios.FindAsync(userId);
 
             var topico = await _context.Topicos.FindAsync(id);
             if (topico == null)
@@ -316,6 +317,20 @@
             };
 
             _context.Curtidas.Add(novaCurtida);
+
+            // Notifica o dono do tópico, se não for ele mesmo curtindo
+            if (topico.UsuarioId != userId)
+            {
+                var notificacao = new Notificacao
+                {
+                    UsuarioId = topico.UsuarioId,
+                    Mensagem = $"{usuarioQueCurtiu.Nome} curtiu seu tópico '{topico.Titulo}'.",
+                    LinkId = topico.Id
+                };
+                _context.Notificacoes.Add(notificacao);
+            }
+
+
             await _context.SaveChangesAsync();
 
             return Ok();

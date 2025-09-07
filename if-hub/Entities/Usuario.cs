@@ -14,7 +14,7 @@
         public virtual ICollection<Topico> Topicos { get; set; }
         public virtual ICollection<Resposta> Respostas { get; set; }
         public virtual ICollection<Curtida> Curtidas { get; set; } = new List<Curtida>();
-        public virtual ICollection<Notificacao> Notificacoes { get; set; }
-        public virtual ICollection<LogAcao> LogAcoes { get; set; }
+        public virtual ICollection<Notificacao> Notificacoes { get; set; } = new List<Notificacao>(); public virtual ICollection<LogAcao> LogAcoes { get; set; }
+
     }
 }
