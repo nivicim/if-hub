@@ -166,44 +166,33 @@
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var usuarioQueCurtiu = await _context.Usuarios.FindAsync(userId);
+            var resposta = await _context.Respostas.Include(r => r.Topico).FirstOrDefaultAsync(r => r.Id == id);
 
-            var resposta = await _context.Respostas.FindAsync(id);
-            if (resposta == null)
-            {
-                return NotFound("Resposta não encontrada.");
-            }
+            if (resposta == null) return NotFound("Resposta não encontrada.");
 
-            var curtidaExistente = await _context.Curtidas
-                .AnyAsync(c => c.RespostaId == id && c.UsuarioId == userId);
+            var curtidaExistente = await _context.Curtidas.AnyAsync(c => c.RespostaId == id && c.UsuarioId == userId);
+            if (curtidaExistente) return BadRequest("Você já curtiu esta resposta.");
 
-            if (curtidaExistente)
-            {
-                return BadRequest("Você já curtiu esta resposta.");
-            }
+            _context.Curtidas.Add(new Curtida { UsuarioId = userId, RespostaId = id, Data = DateTime.UtcNow });
 
-            var novaCurtida = new Curtida
-            {
-                UsuarioId = userId,
-                RespostaId = id,
-                Data = DateTime.UtcNow
-            };
-
-            _context.Curtidas.Add(novaCurtida);
-
-            // Notifica o dono do tópico, se não for ele mesmo curtindo
+            // --- LÓGICA ANTI-FLOOD ---
             if (resposta.UsuarioId != userId)
             {
-                var notificacao = new Notificacao
+                var mensagem = $"{usuarioQueCurtiu.Nome} curtiu sua resposta no tópico '{resposta.Topico.Titulo}'.";
+
+                var notificacaoExistente = await _context.Notificacoes.AnyAsync(n =>
+                    n.UsuarioId == resposta.UsuarioId &&
+                    n.LinkId == resposta.TopicoId && // Link é sempre para o tópico
+                    n.Mensagem == mensagem &&
+                    !n.Lida);
+
+                if (!notificacaoExistente)
                 {
-                    UsuarioId = resposta.UsuarioId,
-                    Mensagem = $"{usuarioQueCurtiu.Nome} curtiu sua resposta ao tópico '{resposta.Topico.Titulo}'.",
-                    LinkId = resposta.Id
-                };
-                _context.Notificacoes.Add(notificacao);
+                    _context.Notificacoes.Add(new Notificacao { UsuarioId = resposta.UsuarioId, Mensagem = mensagem, LinkId = resposta.TopicoId });
+                }
             }
 
             await _context.SaveChangesAsync();
-
             return Ok();
         }
 

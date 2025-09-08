@@ -1,0 +1,118 @@
+﻿@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using if_hub.ViewModels
+
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<div class="relative">
+    <button @onclick="ToggleNotifications" class="relative text-gray-500 hover:text-[#00ADB5] transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+            <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+        </svg>
+
+        @if (unreadCount > 0)
+        {
+            <span class="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                @unreadCount
+            </span>
+        }
+    </button>
+
+    @if (areNotificationsVisible)
+    {
+        <div @onclick="CloseDropdown" class="fixed inset-0 z-0"></div>
+
+        <div class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border z-10">
+            <div class="p-3 font-bold text-gray-700 border-b">Notificações</div>
+            <div class="max-h-96 overflow-y-auto">
+                @if (notifications == null)
+                {
+                    <p class="text-sm text-gray-500 p-4"><em>Carregando...</em></p>
+                }
+                else if (!notifications.Any())
+                {
+                    <p class="text-sm text-gray-500 p-4">Nenhuma notificação por enquanto.</p>
+                }
+                else
+                {
+                    @foreach (var notification in notifications)
+                    {
+                        <a href="/topics/@notification.LinkId" @onclick="() => HandleNotificationClick(notification)" @onclick:preventDefault class="block px-4 py-3 text-sm hover:bg-gray-100 @(notification.Lida ? "text-gray-500" : "text-gray-800 font-semibold")">
+                            @notification.Mensagem
+                            <span class="block text-xs text-gray-400 mt-1">@notification.DataEnvio.ToString("dd/MM/yy 'às' HH:mm")</span>
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int unreadCount = 0;
+    private List<NotificacaoViewModel>? notifications;
+    private bool areNotificationsVisible = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrEmpty(token)) return;
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Busca a contagem inicial para o badge
+        var countResponse = await Http.GetFromJsonAsync<UnreadCountResponse>("api/notificacoes/nao-lidas/contagem");
+        if (countResponse != null)
+        {
+            unreadCount = countResponse.Count;
+        }
+        Http.DefaultRequestHeaders.Authorization = null;
+    }
+
+    private void CloseDropdown()
+    {
+        areNotificationsVisible = false;
+    }
+
+    private async Task ToggleNotifications()
+    {
+        areNotificationsVisible = !areNotificationsVisible;
+
+        // Se o menu for aberto e houver notificações não lidas, busca a lista completa e marca como lidas
+        if (areNotificationsVisible && unreadCount > 0)
+        {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            notifications = await Http.GetFromJsonAsync<List<NotificacaoViewModel>>("api/notificacoes");
+            await Http.PostAsync("api/notificacoes/marcar-todas-como-lidas", null);
+
+            Http.DefaultRequestHeaders.Authorization = null;
+
+            unreadCount = 0; // Zera a contagem na UI instantaneamente
+        }
+        else if (areNotificationsVisible) // Se abrir sem notificações novas, apenas busca a lista
+        {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            notifications = await Http.GetFromJsonAsync<List<NotificacaoViewModel>>("api/notificacoes");
+            Http.DefaultRequestHeaders.Authorization = null;
+        }
+    }
+
+    private void HandleNotificationClick(NotificacaoViewModel notification)
+    {
+        areNotificationsVisible = false;
+        Navigation.NavigateTo($"/topics/{notification.LinkId}");
+    }
+
+    private class UnreadCountResponse
+    {
+        public int Count { get; set; }
+    }
+}

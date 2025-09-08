@@ -19,6 +19,8 @@
                         </svg>
                     </div>
                     <span class="text-2xl font-bold">iF-Hub</span>
+                    <NavLink href="/forums" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Fóruns</NavLink>
+                    <NavLink href="/about" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Sobre</NavLink>
                 </NavLink>
                 <AuthorizeView Roles="3">
                     <Authorized>
@@ -29,22 +31,21 @@
                             </span>
                         </NavLink>
                     </Authorized>
-                </AuthorizeView>
-                <nav class="hidden md:flex space-x-6 items-center">
-                    <NavLink href="/forums" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Fóruns</NavLink>
-                    <NavLink href="/about" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Sobre</NavLink>
 
+                </AuthorizeView>
+                <div class="nav-auth-section flex items-center gap-x-4">
                     <AuthorizeView>
                         <Authorized>
-                            <span class="font-semibold">Olá, @context.User.FindFirst(ClaimTypes.Name)?.Value</span>
-                            <a href="javascript:void(0)" @onclick="Logout" class="button-login py-2 px-4 rounded-lg font-semibold transition duration-150">Sair</a>
+                            <span class="font-semibold">Olá, @context.User.Identity?.Name</span>
+                            <NotificationBell />
+                            <button @onclick="Logout" class="button-logout font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Sair</button>
                         </Authorized>
                         <NotAuthorized>
-                            <NavLink href="login" class="button-login py-2 px-4 rounded-lg font-semibold transition duration-150">Login</NavLink>
-                            <NavLink href="register" class="button-signup py-2 px-4 rounded-lg font-semibold transition duration-150">Cadastre-se</NavLink>
+                            <a href="/login" class="button-login font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Login</a>
+                            <a href="/register" class="button-register font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Registrar</a>
                         </NotAuthorized>
                     </AuthorizeView>
-                </nav>
+                </div>
                 <div class="md:hidden">
                     <button @onclick="ToggleMobileMenu" class="text-[#EEEEEE] focus:outline-none">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
