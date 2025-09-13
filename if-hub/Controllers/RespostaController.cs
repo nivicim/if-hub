@@ -27,6 +27,12 @@
         [Authorize]
         public async Task<IActionResult> CreateResposta([FromForm] CreateRespostaViewModel respostaViewModel)
         {
+            // Validação de limite de arquivos
+            if (respostaViewModel.Anexos?.Count > 3)
+            {
+                return BadRequest("Não é permitido enviar mais de 3 anexos por resposta.");
+            }
+
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var usuarioQueRespondeu = await _context.Usuarios.FindAsync(userId);
 
@@ -39,21 +45,20 @@
                 RespostaPaiId = respostaViewModel.RespostaPaiId
             };
 
-            // Lógica para salvar o anexo, se ele existir
-            if (respostaViewModel.Anexo != null)
+            // Lógica para salvar múltiplos anexos
+            if (respostaViewModel.Anexos != null)
             {
-                var anexoUrl = await _fileStorageService.SaveFileAsync(respostaViewModel.Anexo);
-
-                var novoAnexo = new Anexo
+                foreach (var file in respostaViewModel.Anexos)
                 {
-                    NomeArquivo = respostaViewModel.Anexo.FileName,
-                    Url = anexoUrl,
-                    TipoConteudo = respostaViewModel.Anexo.ContentType,
-                    TamanhoEmBytes = respostaViewModel.Anexo.Length,
-                    DataUpload = DateTime.UtcNow,
-                };
-
-                novaResposta.Anexos.Add(novoAnexo);
+                    var anexoUrl = await _fileStorageService.SaveFileAsync(file);
+                    novaResposta.Anexos.Add(new Anexo
+                    {
+                        NomeArquivo = file.FileName,
+                        Url = anexoUrl,
+                        TipoConteudo = file.ContentType,
+                        TamanhoEmBytes = file.Length
+                    });
+                }
             }
 
             _context.Respostas.Add(novaResposta);

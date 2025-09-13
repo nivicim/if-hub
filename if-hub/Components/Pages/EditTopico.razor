@@ -91,6 +91,13 @@
                                 </div>
                             }
 
+                            @if (!string.IsNullOrEmpty(warningMessage))
+                            {
+                                <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg" role="alert">
+                                    @warningMessage
+                                </div>
+                            }
+
                             <div class="flex justify-end gap-4">
                                 <a href="@($"/topics/{TopicId}")" class="button-login font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">Cancelar</a>
                                 <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">Salvar Alterações</button>
@@ -116,6 +123,7 @@
     private List<IBrowserFile> newImages = new();
     private List<IBrowserFile> newOtherFiles = new();
     private string? errorMessage;
+    private string? warningMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -142,8 +150,29 @@
         }
     }
 
-    private void LoadCarouselImages(InputFileChangeEventArgs e) => newImages.AddRange(e.GetMultipleFiles(maximumFileCount: 10));
-    private void LoadOtherFiles(InputFileChangeEventArgs e) => newOtherFiles.AddRange(e.GetMultipleFiles(maximumFileCount: 10));
+    private void LoadCarouselImages(InputFileChangeEventArgs e)
+    {
+        warningMessage = null;
+        newImages.Clear();
+        var files = e.GetMultipleFiles();
+        if (files.Count > 6)
+        {
+            warningMessage = "Limite de 6 imagens excedido. Apenas as 6 primeiras serão consideradas.";
+        }
+        newImages.AddRange(files.Take(6));
+    }
+
+    private void LoadOtherFiles(InputFileChangeEventArgs e)
+    {
+        warningMessage = null;
+        newOtherFiles.Clear();
+        var files = e.GetMultipleFiles();
+        if (files.Count > 2)
+        {
+            warningMessage = "Limite de 2 anexos excedido. Apenas os 2 primeiros serão considerados.";
+        }
+        newOtherFiles.AddRange(files.Take(2));
+    }
 
     private async Task DeleteAttachment(int anexoId)
     {

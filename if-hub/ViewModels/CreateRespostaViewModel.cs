@@ -13,6 +13,6 @@
        
         public int? RespostaPaiId { get; set; }
 
-        public IFormFile? Anexo { get; set; }
+        public List<IFormFile>? Anexos { get; set; }
     }
 }

@@ -149,6 +149,16 @@
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
+            if (topicViewModel.Imagens?.Count > 6)
+            {
+                return BadRequest("Não é permitido enviar mais de 6 imagens para o carrossel.");
+            }
+
+            if (topicViewModel.OutrosAnexos?.Count > 2)
+            {
+                return BadRequest("Não é permitido enviar mais de 2 outros anexos.");
+            }
+
             var novoTopico = new Topico
             {
                 Titulo = topicViewModel.Titulo,
@@ -235,6 +245,16 @@
 
             var topico = await _context.Topicos.Include(t => t.Anexos).FirstOrDefaultAsync(t => t.Id == id);
 
+            if (topicViewModel.Imagens?.Count > 6)
+            {
+                return BadRequest("Não é permitido adicionar mais de 6 imagens.");
+            }
+
+            if (topicViewModel.OutrosAnexos?.Count > 3)
+            {
+                return BadRequest("Não é permitido adicionar mais de 3 outros anexos.");
+            }
+
             if (topico == null)
             {
                 return NotFound();
@@ -250,9 +270,24 @@
             topico.Conteudo = topicViewModel.Conteudo;
             topico.EditadoEm = DateTime.UtcNow;
 
-            // Processa a lista de novas Imagens
-            if (topicViewModel.Imagens != null && topicViewModel.Imagens.Any())
+            if (topico == null) return NotFound();
+
+            // Atualiza os campos de texto
+            topico.Titulo = topicViewModel.Titulo;
+            topico.Conteudo = topicViewModel.Conteudo;
+            topico.EditadoEm = DateTime.UtcNow;
+
+            // Lógica para substituir as imagens do carrossel
+            if (topicViewModel.Imagens != null)
             {
+                // 1. Remove os anexos antigos que eram do carrossel
+                var anexosAntigos = topico.Anexos.Where(a => a.IsCarouselImage).ToList();
+                foreach (var anexo in anexosAntigos)
+                {
+                    await _fileStorageService.DeleteFileAsync(anexo.Url);
+                    _context.Anexos.Remove(anexo);
+                }
+                // 2. Adiciona os novos
                 foreach (var file in topicViewModel.Imagens)
                 {
                     var anexoUrl = await _fileStorageService.SaveFileAsync(file);
@@ -266,9 +301,17 @@
                 }
             }
 
-            // Processa a lista de Outros Anexos
-            if (topicViewModel.OutrosAnexos != null && topicViewModel.OutrosAnexos.Any())
+            // Lógica para substituir os outros anexos
+            if (topicViewModel.OutrosAnexos != null)
             {
+                // 1. Remove os anexos antigos que NÃO eram do carrossel
+                var outrosAnexosAntigos = topico.Anexos.Where(a => !a.IsCarouselImage).ToList();
+                foreach (var anexo in outrosAnexosAntigos)
+                {
+                    await _fileStorageService.DeleteFileAsync(anexo.Url);
+                    _context.Anexos.Remove(anexo);
+                }
+                // 2. Adiciona os novos
                 foreach (var file in topicViewModel.OutrosAnexos)
                 {
                     var anexoUrl = await _fileStorageService.SaveFileAsync(file);
@@ -283,8 +326,8 @@
             }
 
             await _context.SaveChangesAsync();
-
             return NoContent();
+        
         }
 
         // POST: api/topicos/{id}/curtir
@@ -344,6 +387,46 @@
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        // GET: api/topicos/search?q=texto
+        [HttpGet("search")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SearchTopicos([FromQuery] string q)
+        {
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return Ok(new List<TopicListItemViewModel>());
+            }
+
+            var userId = User.Identity.IsAuthenticated
+                ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
+                : (int?)null;
+
+            var queryLower = q.ToLower();
+
+            var topicosEncontrados = await _context.Topicos
+                .Include(t => t.Usuario)
+                .Include(t => t.Categoria)
+                .Include(t => t.Respostas)
+                .Include(t => t.Curtidas)
+                // A busca é feita no título e no conteúdo, de forma 'case-insensitive'
+                .Where(t => t.Titulo.ToLower().Contains(queryLower) || t.Conteudo.ToLower().Contains(queryLower))
+                .OrderByDescending(t => t.DataCriacao)
+                .Select(t => new TopicListItemViewModel
+                {
+                    Id = t.Id,
+                    Titulo = t.Titulo,
+                    UsuarioNome = t.Usuario != null ? t.Usuario.Nome : "Usuário Deletado",
+                    CategoriaId = t.CategoriaId,
+                    CategoriaNome = t.Categoria != null ? t.Categoria.Nome : "Sem Categoria",
+                    TotalRespostas = t.Respostas.Count(),
+                    TotalCurtidas = t.Curtidas.Count(),
+                    UsuarioCurtiu = userId.HasValue && t.Curtidas.Any(c => c.UsuarioId == userId.Value)
+                })
+                .ToListAsync();
+
+            return Ok(topicosEncontrados);
         }
     }
 }

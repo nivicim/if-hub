@@ -119,8 +119,15 @@ else
 
                         <div class="mt-4">
                             <label for="anexo-resposta" class="block mb-2 text-sm font-medium text-gray-900">Anexo (Opcional)</label>
-                            <InputFile id="anexo-resposta" OnChange="LoadFileForReply" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
+                            <InputFile id="anexo-resposta" OnChange="LoadFilesForReply" multiple class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
                         </div>
+
+                        @if (!string.IsNullOrEmpty(replyErrorMessage))
+                        {
+                            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mt-4" role="alert">
+                                @replyErrorMessage
+                            </div>
+                        }
 
                         <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg w-full mt-4">
                             <span>Enviar Resposta</span>
@@ -142,19 +149,116 @@ else
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
-    private int? replyingToReplyId = null;
     private TopicDetailViewModel? topic;
     private CreateRespostaViewModel newReply = new();
-    private IBrowserFile? uploadedFileForReply;
     private bool isOwner = false;
     private string? loggedInUserId;
-    private string? parentReplyContentPreview = null;
     private int? editingReplyId = null;
     private UpdateRespostaViewModel updateReplyModel = new();
+    private string? parentReplyContentPreview = null;
+    private int? replyingToReplyId = null;
+
+    // Variáveis para upload de arquivos de RESPOSTA
+    private List<IBrowserFile> uploadedFilesForReply = new();
+    private string? replyErrorMessage; 
+    private const long MaxFileSize = 10 * 1024 * 1024; 
 
     protected override async Task OnInitializedAsync()
     {
         await LoadTopicAndCheckOwnership();
+    }
+
+    private async Task LoadTopicAndCheckOwnership()
+    {
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            topic = await Http.GetFromJsonAsync<TopicDetailViewModel>($"/api/topicos/{TopicId}");
+            Http.DefaultRequestHeaders.Authorization = null;
+            if (topic != null && AuthenticationStateTask != null)
+            {
+                var authState = await AuthenticationStateTask;
+                var user = authState.User;
+                if (user.Identity is { IsAuthenticated: true })
+                {
+                    loggedInUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+                    isOwner = loggedInUserId == topic.UsuarioId.ToString();
+                }
+            }
+        }
+        catch (Exception ex) { Console.WriteLine($"Erro ao carregar o tópico: {ex.ToString()}"); }
+    }
+
+    private void LoadFilesForReply(InputFileChangeEventArgs e)
+    {
+        replyErrorMessage = null; // Limpa erros anteriores
+        uploadedFilesForReply.Clear();
+        try
+        {
+            uploadedFilesForReply.AddRange(e.GetMultipleFiles(maximumFileCount: 3));
+        }
+        catch (InvalidOperationException)
+        {
+            // Define a mensagem de erro se o limite de contagem for excedido
+            replyErrorMessage = "Você pode selecionar no máximo 3 anexos.";
+        }
+    }
+
+    public async Task HandleSubmitReply()
+    {
+        replyErrorMessage = null; // Limpa erros anteriores
+        try
+        {
+            newReply.TopicoId = TopicId;
+            newReply.RespostaPaiId = replyingToReplyId;
+
+            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            if (string.IsNullOrEmpty(token)) return;
+
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(newReply.Conteudo), "Conteudo");
+            content.Add(new StringContent(newReply.TopicoId.ToString()), "TopicoId");
+            if (newReply.RespostaPaiId.HasValue)
+            {
+                content.Add(new StringContent(newReply.RespostaPaiId.Value.ToString()), "RespostaPaiId");
+            }
+
+            // CORRIGIDO: Usa a lista 'uploadedFilesForReply'
+            foreach (var file in uploadedFilesForReply)
+            {
+                var fileContent = new StreamContent(file.OpenReadStream(MaxFileSize));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+                content.Add(fileContent, "Anexos", file.Name);
+            }
+
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.PostAsync("/api/respostas", content);
+            Http.DefaultRequestHeaders.Authorization = null;
+
+            if (response.IsSuccessStatusCode)
+            {
+                newReply = new CreateRespostaViewModel();
+                uploadedFilesForReply.Clear();
+                replyingToReplyId = null;
+                await LoadTopicAndCheckOwnership();
+            }
+            else
+            {
+                replyErrorMessage = "Ocorreu um erro ao enviar a resposta.";
+            }
+        }
+        catch (IOException)
+        {
+            replyErrorMessage = "Erro: Um dos arquivos excede o limite de 10 MB.";
+        }
+        catch (Exception)
+        {
+            replyErrorMessage = "Ocorreu um erro inesperado.";
+        }
     }
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -165,35 +269,6 @@ else
         }
     }
 
-    private async Task LoadTopicAndCheckOwnership()
-    {
-        try
-        {
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-
-            if (!string.IsNullOrEmpty(token))
-            {
-                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
-
-            topic = await Http.GetFromJsonAsync<TopicDetailViewModel>($"/api/topicos/{TopicId}");
-
-            Http.DefaultRequestHeaders.Authorization = null;
-
-            if (topic != null && AuthenticationStateTask != null)
-            {
-                var authState = await AuthenticationStateTask;
-                var user = authState.User;
-
-                if (user.Identity is { IsAuthenticated: true })
-                {
-                    loggedInUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-                    isOwner = loggedInUserId == topic.UsuarioId.ToString();
-                }
-            }
-        }
-        catch (Exception ex) { Console.WriteLine($"Erro ao carregar o tópico: {ex.ToString()}"); }
-    }
 
     public bool IsEditing(int replyId) => editingReplyId == replyId;
 
@@ -264,53 +339,6 @@ else
         replyingToReplyId = null;
         parentReplyContentPreview = null;
         newReply.Conteudo = string.Empty;
-    }
-
-    public async Task HandleSubmitReply()
-    {
-        try
-        {
-            newReply.TopicoId = TopicId;
-            newReply.RespostaPaiId = replyingToReplyId;
-
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (string.IsNullOrEmpty(token)) return;
-
-            using var content = new MultipartFormDataContent();
-            content.Add(new StringContent(newReply.Conteudo), "Conteudo");
-            content.Add(new StringContent(newReply.TopicoId.ToString()), "TopicoId");
-            if (newReply.RespostaPaiId.HasValue)
-            {
-                content.Add(new StringContent(newReply.RespostaPaiId.Value.ToString()), "RespostaPaiId");
-            }
-
-            if (uploadedFileForReply != null)
-            {
-                var fileContent = new StreamContent(uploadedFileForReply.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
-                fileContent.Headers.ContentType = new MediaTypeHeaderValue(uploadedFileForReply.ContentType);
-                content.Add(fileContent, "Anexo", uploadedFileForReply.Name);
-            }
-
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            var response = await Http.PostAsync("/api/respostas", content);
-            Http.DefaultRequestHeaders.Authorization = null;
-
-            if (response.IsSuccessStatusCode)
-            {
-                newReply = new CreateRespostaViewModel();
-                uploadedFileForReply = null;
-                replyingToReplyId = null;
-                await LoadTopicAndCheckOwnership();
-            }
-        }
-        catch (IOException ex)
-        {
-            Console.WriteLine($"Erro de anexo: Um dos arquivos excede o limite de 10 MB. Detalhes: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erro inesperado: {ex.Message}");
-        }
     }
 
     public async Task HandleDeleteTopic()
@@ -418,9 +446,4 @@ else
             }
         }
     }
-    private void LoadFileForReply(InputFileChangeEventArgs e)
-    {
-        uploadedFileForReply = e.File;
-    }
-
 }

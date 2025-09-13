@@ -22,6 +22,16 @@
                     <NavLink href="/forums" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Fóruns</NavLink>
                     <NavLink href="/about" class="header-nav-link hover:text-[#00ADB5] transition duration-150">Sobre</NavLink>
                 </NavLink>
+                <div class="flex-grow max-w-xs ml-auto shadow-md mx-4">
+                    <form @onsubmit="HandleSearch" class="relative">
+                        <input @bind="searchQuery" type="search" placeholder="Buscar no fórum..." class="block w-full p-2 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500" />
+                        <button type="submit" class="absolute top-0 end-0 h-full p-2.5 text-sm font-medium text-white bg-[#00ADB5] rounded-e-lg border border-[#00ADB5] hover:bg-[#007A7F]">
+                            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
                 <AuthorizeView Roles="3">
                     <Authorized>
                         <NavLink href="/admin/users" class="group flex items-center gap-x-2 p-2 border-2 border-gray-300 rounded-lg transition-colors duration-150 ease-in-out hover:border-[#00ADB5]">
@@ -81,17 +91,8 @@
 
 
             <aside class="lg:col-span-3 space-y-8">
-                <div class="widget p-6 rounded-xl shadow-lg">
-                    <h3 class="text-lg font-semibold widget-title mb-3">Buscar no Fórum</h3>
-                    <form class="flex">
-                        <input type="search" placeholder="Digite sua busca..." class="w-full px-4 py-2 border search-input rounded-l-lg focus:ring-2 outline-none transition">
-                        <button type="submit" class="search-button px-4 py-2 rounded-r-lg font-semibold transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" /></svg>
-                        </button>
-                    </form>
-                </div>
                 <div>
-                    <CategoryList/>
+                    <CategoryList />
                 </div>
                 <div class="widget p-6 rounded-xl shadow-lg">
                     <h3 class="text-lg font-semibold widget-title mb-3">Sobre iF-Hub</h3>
@@ -128,6 +129,9 @@
 @code {
     private bool _isMobileMenuOpen = false;
 
+    private string? searchQuery;
+
+
     private void ToggleMobileMenu()
     {
         _isMobileMenuOpen = !_isMobileMenuOpen;
@@ -143,5 +147,14 @@
         await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
         ((CustomAuthenticationStateProvider)AuthStateProvider).NotifyUserLogout();
         Navigation.NavigateTo("/");
+    }
+
+
+    private void HandleSearch()
+    {
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
+        }
     }
 }
