@@ -64,7 +64,7 @@ namespace if_hub.Controllers
         public async Task<IActionResult> GetTopicosPorCategoria(int id)
         {
             var userId = User.Identity.IsAuthenticated
-                ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
+                ? int.Parse(User.FindFirstValue("UserId"))
                 : (int?)null;
 
             var topicos = await _context.Topicos

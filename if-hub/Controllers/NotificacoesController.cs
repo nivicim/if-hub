@@ -22,7 +22,7 @@ namespace if_hub.Controllers
         [HttpGet]
         public async Task<IActionResult> GetNotificacoes()
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var userId = int.Parse(User.FindFirstValue("UserId"));
 
             var notificacoes = await _context.Notificacoes
                 .Where(n => n.UsuarioId == userId)
@@ -44,7 +44,7 @@ namespace if_hub.Controllers
         [HttpGet("nao-lidas/contagem")]
         public async Task<IActionResult> GetContagemNaoLidas()
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var userId = int.Parse(User.FindFirstValue("UserId"));
 
             var contagem = await _context.Notificacoes
                 .CountAsync(n => n.UsuarioId == userId && !n.Lida);
@@ -56,7 +56,7 @@ namespace if_hub.Controllers
         [HttpPost("marcar-todas-como-lidas")]
         public async Task<IActionResult> MarcarTodasComoLidas()
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var userId = int.Parse(User.FindFirstValue("UserId"));
 
             var notificacoesNaoLidas = await _context.Notificacoes
                 .Where(n => n.UsuarioId == userId && !n.Lida)

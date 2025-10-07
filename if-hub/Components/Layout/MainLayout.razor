@@ -1,6 +1,5 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
-@using if_hub.Auth
 
 
 @inject IJSRuntime JSRuntime
@@ -48,11 +47,9 @@
                         <Authorized>
                             <span class="font-semibold">Olá, @context.User.Identity?.Name</span>
                             <NotificationBell />
-                            <button @onclick="Logout" class="button-logout font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Sair</button>
-                        </Authorized>
+                            <button @onclick="Logout" class="button-logout font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Sair</button>                        </Authorized>
                         <NotAuthorized>
                             <a href="/login" class="button-login font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Login</a>
-                            <a href="/register" class="button-register font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Registrar</a>
                         </NotAuthorized>
                     </AuthorizeView>
                 </div>
@@ -73,8 +70,7 @@
                         <p class="text-sm text-gray-400">Logado como:</p>
                         <p class="font-semibold text-white">@context.User.Claims.FirstOrDefault(c => c.Type == "name")?.Value</p>
                     </div>
-                    <a href="javascript:void(0)" @onclick="Logout" class="block py-3 px-4 text-sm hover:bg-[#222831] transition duration-150 text-[#EEEEEE]">Sair</a>
-                </Authorized>
+                    <a href="api/auth/logout" rel="external" class="button-logout font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Sair</a>                </Authorized>
                 <NotAuthorized>
                     <NavLink href="login" @onclick="CloseMobileMenu" class="block py-3 px-4 text-sm hover:bg-[#222831] transition duration-150 text-[#EEEEEE]">Login</NavLink>
                     <NavLink href="register" @onclick="CloseMobileMenu" class="block py-3 px-4 text-sm hover:bg-[#222831] transition duration-150 text-[#EEEEEE]">Cadastre-se</NavLink>
@@ -144,10 +140,7 @@
 
     private async Task Logout()
     {
-        // Chama o endpoint da API que destrói o cookie
-        await Http.PostAsync("api/auth/logout", null);
-        // Recarrega a página para refletir o estado de deslogado
-        Navigation.NavigateTo("/", forceLoad: true);
+        Navigation.NavigateTo("api/auth/logout", forceLoad: true);
     }
 
 

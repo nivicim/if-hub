@@ -109,24 +109,14 @@ else if (searchResults != null)
 
     private async Task ToggleLike(TopicListItemViewModel topico)
     {
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        if (string.IsNullOrEmpty(token))
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var response = topico.UsuarioCurtiu
             ? await Http.DeleteAsync($"api/topicos/{topico.Id}/curtir")
             : await Http.PostAsJsonAsync($"api/topicos/{topico.Id}/curtir", new { });
 
-        Http.DefaultRequestHeaders.Authorization = null;
-
         if (response.IsSuccessStatusCode)
         {
-            // Recarrega os resultados da busca para atualizar o estado da curtida
-            await OnParametersSetAsync();
+            topico.UsuarioCurtiu = !topico.UsuarioCurtiu;
+            topico.TotalCurtidas += topico.UsuarioCurtiu ? 1 : -1;
         }
         else
         {

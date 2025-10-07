@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>if-hub</RootNamespace>
     <AssemblyName>$(AssemblyName.Replace(' ', '_'))</AssemblyName>
+    <UserSecretsId>5b6a249e-0a08-416d-ad51-0cd3953806af</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

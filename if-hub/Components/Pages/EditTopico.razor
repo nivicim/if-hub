@@ -174,13 +174,7 @@
     private async Task DeleteAttachment(int anexoId)
     {
         errorMessage = null;
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var response = await Http.DeleteAsync($"api/anexos/{anexoId}");
-
-        Http.DefaultRequestHeaders.Authorization = null;
-
         if (response.IsSuccessStatusCode)
         {
             currentAttachments.RemoveAll(a => a.Id == anexoId);
@@ -194,10 +188,8 @@
     private async Task HandleUpdateTopic()
     {
         errorMessage = null;
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         using var content = new MultipartFormDataContent();
+
         content.Add(new StringContent(topicModel.Titulo), "Titulo");
         content.Add(new StringContent(topicModel.Conteudo), "Conteudo");
 
@@ -216,14 +208,13 @@
                 content.Add(fileContent, "OutrosAnexos", file.Name);
             }
         }
-        catch (IOException)
+        catch(IOException)
         {
             errorMessage = "Um ou mais arquivos excedem o limite de tamanho de 10MB.";
             return;
         }
 
         var response = await Http.PutAsync($"api/topicos/{TopicId}", content);
-        Http.DefaultRequestHeaders.Authorization = null;
 
         if (response.IsSuccessStatusCode)
         {

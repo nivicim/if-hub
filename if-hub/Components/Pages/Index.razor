@@ -104,29 +104,14 @@ else
 
     private async Task ToggleLike(TopicListItemViewModel topico)
     {
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        if (string.IsNullOrEmpty(token))
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        HttpResponseMessage response;
-        if (topico.UsuarioCurtiu)
-        {
-            response = await Http.DeleteAsync($"api/topicos/{topico.Id}/curtir");
-        }
-        else
-        {
-            response = await Http.PostAsJsonAsync($"api/topicos/{topico.Id}/curtir", new { });
-        }
-
-        Http.DefaultRequestHeaders.Authorization = null;
+        var response = topico.UsuarioCurtiu
+            ? await Http.DeleteAsync($"api/topicos/{topico.Id}/curtir")
+            : await Http.PostAsJsonAsync($"api/topicos/{topico.Id}/curtir", new { });
 
         if (response.IsSuccessStatusCode)
         {
-            await OnInitializedAsync();
+            topico.UsuarioCurtiu = !topico.UsuarioCurtiu;
+            topico.TotalCurtidas += topico.UsuarioCurtiu ? 1 : -1;
         }
         else
         {

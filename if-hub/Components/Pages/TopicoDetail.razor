@@ -154,35 +154,24 @@ else
     private UpdateRespostaViewModel updateReplyModel = new();
     private string? parentReplyContentPreview = null;
     private int? replyingToReplyId = null;
-
-    // Variáveis para upload de arquivos de RESPOSTA
     private List<IBrowserFile> uploadedFilesForReply = new();
-    private string? replyErrorMessage; 
-    private const long MaxFileSize = 10 * 1024 * 1024; 
+    private string? replyErrorMessage;
+    private const long MaxFileSize = 10 * 1024 * 1024;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadTopicAndCheckOwnership();
-    }
-
+    protected override async Task OnInitializedAsync() => await LoadTopicAndCheckOwnership();
+    
     private async Task LoadTopicAndCheckOwnership()
     {
         try
         {
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (!string.IsNullOrEmpty(token))
-            {
-                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
             topic = await Http.GetFromJsonAsync<TopicDetailViewModel>($"/api/topicos/{TopicId}");
-            Http.DefaultRequestHeaders.Authorization = null;
             if (topic != null && AuthenticationStateTask != null)
             {
                 var authState = await AuthenticationStateTask;
                 var user = authState.User;
                 if (user.Identity is { IsAuthenticated: true })
                 {
-                    loggedInUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+                    loggedInUserId = user.FindFirstValue("UserId");
                     isOwner = loggedInUserId == topic.UsuarioId.ToString();
                 }
             }
@@ -192,7 +181,7 @@ else
 
     private void LoadFilesForReply(InputFileChangeEventArgs e)
     {
-        replyErrorMessage = null; // Limpa erros anteriores
+        replyErrorMessage = null;
         uploadedFilesForReply.Clear();
         try
         {
@@ -200,21 +189,17 @@ else
         }
         catch (InvalidOperationException)
         {
-            // Define a mensagem de erro se o limite de contagem for excedido
             replyErrorMessage = "Você pode selecionar no máximo 3 anexos.";
         }
     }
 
     public async Task HandleSubmitReply()
     {
-        replyErrorMessage = null; // Limpa erros anteriores
+        replyErrorMessage = null;
         try
         {
             newReply.TopicoId = TopicId;
             newReply.RespostaPaiId = replyingToReplyId;
-
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (string.IsNullOrEmpty(token)) return;
 
             using var content = new MultipartFormDataContent();
             content.Add(new StringContent(newReply.Conteudo), "Conteudo");
@@ -224,7 +209,6 @@ else
                 content.Add(new StringContent(newReply.RespostaPaiId.Value.ToString()), "RespostaPaiId");
             }
 
-            // CORRIGIDO: Usa a lista 'uploadedFilesForReply'
             foreach (var file in uploadedFilesForReply)
             {
                 var fileContent = new StreamContent(file.OpenReadStream(MaxFileSize));
@@ -232,9 +216,7 @@ else
                 content.Add(fileContent, "Anexos", file.Name);
             }
 
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             var response = await Http.PostAsync("/api/respostas", content);
-            Http.DefaultRequestHeaders.Authorization = null;
 
             if (response.IsSuccessStatusCode)
             {
@@ -248,14 +230,8 @@ else
                 replyErrorMessage = "Ocorreu um erro ao enviar a resposta.";
             }
         }
-        catch (IOException)
-        {
-            replyErrorMessage = "Erro: Um dos arquivos excede o limite de 10 MB.";
-        }
-        catch (Exception)
-        {
-            replyErrorMessage = "Ocorreu um erro inesperado.";
-        }
+        catch (IOException) { replyErrorMessage = "Erro: Um dos arquivos excede o limite de 10 MB."; }
+        catch (Exception) { replyErrorMessage = "Ocorreu um erro inesperado."; }
     }
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -276,16 +252,10 @@ else
     public async Task ToggleTopicLike()
     {
         if (topic is null) return;
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
+        
         var response = topic.UsuarioCurtiu
             ? await Http.DeleteAsync($"api/topicos/{topic.Id}/curtir")
             : await Http.PostAsJsonAsync($"api/topicos/{topic.Id}/curtir", new { });
-
-        Http.DefaultRequestHeaders.Authorization = null;
 
         if (response.IsSuccessStatusCode)
         {
@@ -296,25 +266,14 @@ else
 
     public async Task ToggleReplyLike(RespostaViewModel resposta)
     {
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var response = resposta.UsuarioCurtiu
             ? await Http.DeleteAsync($"api/respostas/{resposta.Id}/curtir")
             : await Http.PostAsJsonAsync($"api/respostas/{resposta.Id}/curtir", new { });
-
-        Http.DefaultRequestHeaders.Authorization = null;
 
         if (response.IsSuccessStatusCode)
         {
             resposta.UsuarioCurtiu = !resposta.UsuarioCurtiu;
             resposta.TotalCurtidas += resposta.UsuarioCurtiu ? 1 : -1;
-        }
-        else
-        {
-            Console.WriteLine($"Falha ao curtir/descurtir resposta. Status: {response.StatusCode}");
         }
     }
 
@@ -341,19 +300,9 @@ else
     public async Task HandleDeleteTopic()
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir este tópico?");
-
         if (confirmed)
         {
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-
-            if (string.IsNullOrEmpty(token)) return;
-
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
             var response = await Http.DeleteAsync($"/api/topicos/{TopicId}");
-
-            Http.DefaultRequestHeaders.Authorization = null;
-
             if (response.IsSuccessStatusCode) { Navigation.NavigateTo("/"); }
         }
     }
@@ -369,20 +318,11 @@ else
         editingReplyId = null;
     }
 
+
     public async Task HandleUpdateReply()
     {
         if (editingReplyId == null) return;
-
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-
-        if (string.IsNullOrEmpty(token)) return;
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var response = await Http.PutAsJsonAsync($"/api/respostas/{editingReplyId}", updateReplyModel);
-
-        Http.DefaultRequestHeaders.Authorization = null;
-
         if (response.IsSuccessStatusCode)
         {
             editingReplyId = null;
@@ -390,19 +330,12 @@ else
         }
     }
 
-
     public async Task HandleDeleteReply(int respostaId)
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza que deseja excluir esta resposta?");
         if (confirmed)
         {
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (string.IsNullOrEmpty(token)) return;
-
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             var response = await Http.DeleteAsync($"/api/respostas/{respostaId}");
-            Http.DefaultRequestHeaders.Authorization = null;
-
             if (response.IsSuccessStatusCode)
             {
                 if (topic != null)

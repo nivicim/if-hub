@@ -28,30 +28,28 @@
         public async Task<IActionResult> GetTopicos()
         {
             var userId = User.Identity.IsAuthenticated
-                ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
+                ? int.Parse(User.FindFirstValue("UserId"))
                 : (int?)null;
 
-            var topicosDoBanco = await _context.Topicos
+            var topicos = await _context.Topicos
                 .Include(t => t.Usuario)
                 .Include(t => t.Categoria)
                 .Include(t => t.Respostas)
                 .Include(t => t.Curtidas)
                 .OrderByDescending(t => t.DataCriacao)
-                .ToListAsync();
-
-            var resultadoFinal = topicosDoBanco.Select(t => new TopicListItemViewModel
-            {
-                Id = t.Id,
-                Titulo = t.Titulo,
-                UsuarioNome = t.Usuario != null ? t.Usuario.Nome : "Usuário Deletado",
-                CategoriaNome = t.Categoria != null ? t.Categoria.Nome : "Sem Categoria",
-                CategoriaId = t.CategoriaId,
-                TotalRespostas = t.Respostas.Count(),
-                TotalCurtidas = t.Curtidas.Count(),
-                UsuarioCurtiu = userId.HasValue && t.Curtidas.Any(c => c.UsuarioId == userId.Value)
-            }).ToList();
-
-            return Ok(resultadoFinal);
+                .Select(t => new TopicListItemViewModel
+                {
+                    Id = t.Id,
+                    Titulo = t.Titulo,
+                    UsuarioNome = t.Usuario != null ? t.Usuario.Nome : "Usuário Deletado",
+                    CategoriaId = t.CategoriaId,
+                    CategoriaNome = t.Categoria != null ? t.Categoria.Nome : "Sem Categoria",
+                    TotalRespostas = t.Respostas.Count(),
+                    TotalCurtidas = t.Curtidas.Count(),
+                    UsuarioCurtiu = userId.HasValue && t.Curtidas.Any(c => c.UsuarioId == userId.Value)
+                }).ToListAsync();
+        
+            return Ok(topicos);
         }
 
         // GET: api/topicos/{id}
@@ -60,23 +58,20 @@
         public async Task<IActionResult> GetTopico(int id)
         {
             var userId = User.Identity.IsAuthenticated
-                ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
+                ? int.Parse(User.FindFirstValue("UserId"))
                 : (int?)null;
 
             var topicoEntity = await _context.Topicos
                 .Include(t => t.Usuario)
                 .Include(t => t.Categoria)
                 .Include(t => t.Curtidas)
+                .Include(t => t.Anexos)
                 .Include(t => t.Respostas).ThenInclude(r => r.Usuario)
                 .Include(t => t.Respostas).ThenInclude(r => r.Curtidas)
-                .Include(t => t.Anexos) 
                 .Include(t => t.Respostas).ThenInclude(r => r.Anexos)
                 .FirstOrDefaultAsync(t => t.Id == id);
 
-            if (topicoEntity == null)
-            {
-                return NotFound();
-            }
+            if (topicoEntity == null) return NotFound();
 
             var topicoViewModel = new TopicDetailViewModel
             {
@@ -91,14 +86,7 @@
                 CategoriaNome = topicoEntity.Categoria.Nome,
                 TotalCurtidas = topicoEntity.Curtidas.Count(),
                 UsuarioCurtiu = userId.HasValue && topicoEntity.Curtidas.Any(c => c.UsuarioId == userId.Value),
-                        Anexos = topicoEntity.Anexos.Select(a => new AnexoViewModel
-                        {
-                            Id = a.Id,
-                            NomeArquivo = a.NomeArquivo,
-                            Url = a.Url,
-                            TipoConteudo = a.TipoConteudo,
-                            IsCarouselImage = a.IsCarouselImage
-                        }).ToList()
+                Anexos = topicoEntity.Anexos.Select(a => new AnexoViewModel { Id = a.Id, NomeArquivo = a.NomeArquivo, Url = a.Url, TipoConteudo = a.TipoConteudo, IsCarouselImage = a.IsCarouselImage }).ToList()
             };
 
             var todasAsRespostas = topicoEntity.Respostas.Select(r => new RespostaViewModel
@@ -113,32 +101,11 @@
                 UsuarioCurtiu = userId.HasValue && r.Curtidas.Any(c => c.UsuarioId == userId.Value),
                 RespostaPaiId = r.RespostaPaiId,
                 Excluida = r.Excluida,
-                Anexos = r.Anexos.Select(a => new AnexoViewModel
-                {
-                    Id = a.Id,
-                    NomeArquivo = a.NomeArquivo,
-                    Url = a.Url,
-                    TipoConteudo = a.TipoConteudo,
-                    IsCarouselImage = a.IsCarouselImage
-                }).ToList()
+                Anexos = r.Anexos.Select(a => new AnexoViewModel { Id = a.Id, NomeArquivo = a.NomeArquivo, Url = a.Url, TipoConteudo = a.TipoConteudo, IsCarouselImage = a.IsCarouselImage }).ToList()
             }).ToList();
-
             var DicionarioRespostas = todasAsRespostas.ToDictionary(r => r.Id);
-
-            foreach (var resposta in todasAsRespostas)
-            {
-                if (resposta.RespostaPaiId.HasValue && DicionarioRespostas.ContainsKey(resposta.RespostaPaiId.Value))
-                {
-                    DicionarioRespostas[resposta.RespostaPaiId.Value].RespostasFilhas.Add(resposta);
-                }
-                else
-                {
-                    topicoViewModel.Respostas.Add(resposta);
-                }
-            }
-
+            foreach (var resposta in todasAsRespostas) { if (resposta.RespostaPaiId.HasValue && DicionarioRespostas.ContainsKey(resposta.RespostaPaiId.Value)) { DicionarioRespostas[resposta.RespostaPaiId.Value].RespostasFilhas.Add(resposta); } else { topicoViewModel.Respostas.Add(resposta); } }
             topicoViewModel.Respostas = topicoViewModel.Respostas.OrderBy(r => r.DataCriacao).ToList();
-
             return Ok(topicoViewModel);
         }
 
@@ -147,60 +114,17 @@
         [Authorize]
         public async Task<IActionResult> CreateTopico([FromBody] CreateTopicViewModel topicViewModel)
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            if (topicViewModel.Imagens?.Count > 6) return BadRequest("Não é permitido enviar mais de 6 imagens para o carrossel.");
+            if (topicViewModel.OutrosAnexos?.Count > 2) return BadRequest("Não é permitido enviar mais de 2 outros anexos.");
 
-            if (topicViewModel.Imagens?.Count > 6)
-            {
-                return BadRequest("Não é permitido enviar mais de 6 imagens para o carrossel.");
-            }
-
-            if (topicViewModel.OutrosAnexos?.Count > 2)
-            {
-                return BadRequest("Não é permitido enviar mais de 2 outros anexos.");
-            }
-
-            var novoTopico = new Topico
-            {
-                Titulo = topicViewModel.Titulo,
-                Conteudo = topicViewModel.Conteudo,
-                DataCriacao = DateTime.UtcNow,
-                CategoriaId = topicViewModel.CategoriaId,
-                UsuarioId = userId
-            };
-
-            // Processa a lista de Imagens do Carrossel
-            if (topicViewModel.Imagens != null)
-            {
-                foreach (var anexo in topicViewModel.Imagens)
-                {
-                    novoTopico.Anexos.Add(new Anexo
-                    {
-                        Url = anexo.Url,
-                        NomeArquivo = anexo.NomeArquivo,
-                        TipoConteudo = anexo.TipoConteudo,
-                        IsCarouselImage = true 
-                    });
-                }
-            }
-
-            // Processa a lista de Outros Anexos
-            if (topicViewModel.OutrosAnexos != null)
-            {
-                foreach (var anexo in topicViewModel.OutrosAnexos)
-                {
-                    novoTopico.Anexos.Add(new Anexo
-                    {
-                        Url = anexo.Url,
-                        NomeArquivo = anexo.NomeArquivo,
-                        TipoConteudo = anexo.TipoConteudo,
-                        IsCarouselImage = false 
-                    });
-                }
-            }
-
+            var userId = int.Parse(User.FindFirstValue("UserId"));
+            var novoTopico = new Topico { Titulo = topicViewModel.Titulo, Conteudo = topicViewModel.Conteudo, DataCriacao = DateTime.UtcNow, CategoriaId = topicViewModel.CategoriaId, UsuarioId = userId };
+            
+            if (topicViewModel.Imagens != null) { foreach (var anexo in topicViewModel.Imagens) { novoTopico.Anexos.Add(new Anexo { Url = anexo.Url, NomeArquivo = anexo.NomeArquivo, TipoConteudo = anexo.TipoConteudo, IsCarouselImage = true }); } }
+            if (topicViewModel.OutrosAnexos != null) { foreach (var anexo in topicViewModel.OutrosAnexos) { novoTopico.Anexos.Add(new Anexo { Url = anexo.Url, NomeArquivo = anexo.NomeArquivo, TipoConteudo = anexo.TipoConteudo, IsCarouselImage = false }); } }
+            
             _context.Topicos.Add(novoTopico);
             await _context.SaveChangesAsync();
-
             return Ok(new { id = novoTopico.Id });
         }
 
@@ -209,29 +133,13 @@
         [Authorize]
         public async Task<IActionResult> DeleteTopico(int id)
         {
-            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = int.Parse(User.FindFirstValue("UserId"));
             var userRole = User.FindFirstValue(ClaimTypes.Role);
-            if (string.IsNullOrEmpty(userIdString))
-            {
-                return Unauthorized();
-            }
-            var userId = int.Parse(userIdString);
-
             var topico = await _context.Topicos.FindAsync(id);
-
-            if (topico == null)
-            {
-                return NotFound();
-            }
-
-            if (topico.UsuarioId != userId && userRole != "2" && userRole != "3")
-            {
-                return Forbid();
-            }
-
+            if (topico == null) return NotFound();
+            if (topico.UsuarioId != userId && userRole != "3") return Forbid(); // Supondo que Role 3 é Admin
             _context.Topicos.Remove(topico);
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
@@ -240,94 +148,34 @@
         [Authorize]
         public async Task<IActionResult> UpdateTopico(int id, [FromForm] UpdateTopicViewModel topicViewModel)
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            if (topicViewModel.Imagens?.Count > 6) return BadRequest("Não é permitido adicionar mais de 6 imagens.");
+            if (topicViewModel.OutrosAnexos?.Count > 2) return BadRequest("Não é permitido adicionar mais de 2 outros anexos.");
+
+            var userId = int.Parse(User.FindFirstValue("UserId"));
             var userRole = User.FindFirstValue(ClaimTypes.Role);
-
             var topico = await _context.Topicos.Include(t => t.Anexos).FirstOrDefaultAsync(t => t.Id == id);
-
-            if (topicViewModel.Imagens?.Count > 6)
-            {
-                return BadRequest("Não é permitido adicionar mais de 6 imagens.");
-            }
-
-            if (topicViewModel.OutrosAnexos?.Count > 3)
-            {
-                return BadRequest("Não é permitido adicionar mais de 3 outros anexos.");
-            }
-
-            if (topico == null)
-            {
-                return NotFound();
-            }
-
-            if (topico.UsuarioId != userId && userRole != "2" && userRole != "3")
-            {
-                return Forbid();
-            }
-
-            // Atualiza os campos de texto
-            topico.Titulo = topicViewModel.Titulo;
-            topico.Conteudo = topicViewModel.Conteudo;
-            topico.EditadoEm = DateTime.UtcNow;
-
+            
             if (topico == null) return NotFound();
-
-            // Atualiza os campos de texto
+            if (topico.UsuarioId != userId && userRole != "3") return Forbid(); // Supondo que Role 3 é Admin
+            
             topico.Titulo = topicViewModel.Titulo;
             topico.Conteudo = topicViewModel.Conteudo;
             topico.EditadoEm = DateTime.UtcNow;
 
-            // Lógica para substituir as imagens do carrossel
             if (topicViewModel.Imagens != null)
             {
-                // 1. Remove os anexos antigos que eram do carrossel
                 var anexosAntigos = topico.Anexos.Where(a => a.IsCarouselImage).ToList();
-                foreach (var anexo in anexosAntigos)
-                {
-                    await _fileStorageService.DeleteFileAsync(anexo.Url);
-                    _context.Anexos.Remove(anexo);
-                }
-                // 2. Adiciona os novos
-                foreach (var file in topicViewModel.Imagens)
-                {
-                    var anexoUrl = await _fileStorageService.SaveFileAsync(file);
-                    topico.Anexos.Add(new Anexo
-                    {
-                        NomeArquivo = file.FileName,
-                        Url = anexoUrl,
-                        TipoConteudo = file.ContentType,
-                        TamanhoEmBytes = file.Length
-                    });
-                }
+                foreach (var anexo in anexosAntigos) { await _fileStorageService.DeleteFileAsync(anexo.Url); _context.Anexos.Remove(anexo); }
+                foreach (var file in topicViewModel.Imagens) { var anexoUrl = await _fileStorageService.SaveFileAsync(file); topico.Anexos.Add(new Anexo { NomeArquivo = file.FileName, Url = anexoUrl, TipoConteudo = file.ContentType, IsCarouselImage = true }); }
             }
-
-            // Lógica para substituir os outros anexos
             if (topicViewModel.OutrosAnexos != null)
             {
-                // 1. Remove os anexos antigos que NÃO eram do carrossel
                 var outrosAnexosAntigos = topico.Anexos.Where(a => !a.IsCarouselImage).ToList();
-                foreach (var anexo in outrosAnexosAntigos)
-                {
-                    await _fileStorageService.DeleteFileAsync(anexo.Url);
-                    _context.Anexos.Remove(anexo);
-                }
-                // 2. Adiciona os novos
-                foreach (var file in topicViewModel.OutrosAnexos)
-                {
-                    var anexoUrl = await _fileStorageService.SaveFileAsync(file);
-                    topico.Anexos.Add(new Anexo
-                    {
-                        NomeArquivo = file.FileName,
-                        Url = anexoUrl,
-                        TipoConteudo = file.ContentType,
-                        TamanhoEmBytes = file.Length
-                    });
-                }
+                foreach (var anexo in outrosAnexosAntigos) { await _fileStorageService.DeleteFileAsync(anexo.Url); _context.Anexos.Remove(anexo); }
+                foreach (var file in topicViewModel.OutrosAnexos) { var anexoUrl = await _fileStorageService.SaveFileAsync(file); topico.Anexos.Add(new Anexo { NomeArquivo = file.FileName, Url = anexoUrl, TipoConteudo = file.ContentType, IsCarouselImage = false }); }
             }
-
             await _context.SaveChangesAsync();
             return NoContent();
-        
         }
 
         // POST: api/topicos/{id}/curtir
@@ -335,35 +183,19 @@
         [Authorize]
         public async Task<IActionResult> CurtirTopico(int id)
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var userId = int.Parse(User.FindFirstValue("UserId"));
             var usuarioQueCurtiu = await _context.Usuarios.FindAsync(userId);
             var topico = await _context.Topicos.FindAsync(id);
-
             if (topico == null) return NotFound("Tópico não encontrado.");
-
             var curtidaExistente = await _context.Curtidas.AnyAsync(c => c.TopicoId == id && c.UsuarioId == userId);
             if (curtidaExistente) return BadRequest("Você já curtiu este tópico.");
-
             _context.Curtidas.Add(new Curtida { UsuarioId = userId, TopicoId = id, Data = DateTime.UtcNow });
-
-            // --- LÓGICA ANTI-FLOOD ---
             if (topico.UsuarioId != userId)
             {
                 var mensagem = $"{usuarioQueCurtiu.Nome} curtiu seu tópico '{topico.Titulo}'.";
-
-                // Verifica se já existe uma notificação igual e não lida
-                var notificacaoExistente = await _context.Notificacoes.AnyAsync(n =>
-                    n.UsuarioId == topico.UsuarioId &&
-                    n.LinkId == topico.Id &&
-                    n.Mensagem == mensagem &&
-                    !n.Lida);
-
-                if (!notificacaoExistente)
-                {
-                    _context.Notificacoes.Add(new Notificacao { UsuarioId = topico.UsuarioId, Mensagem = mensagem, LinkId = topico.Id });
-                }
+                var notificacaoExistente = await _context.Notificacoes.AnyAsync(n => n.UsuarioId == topico.UsuarioId && n.LinkId == topico.Id && n.Mensagem == mensagem && !n.Lida);
+                if (!notificacaoExistente) { _context.Notificacoes.Add(new Notificacao { UsuarioId = topico.UsuarioId, Mensagem = mensagem, LinkId = topico.Id }); }
             }
-
             await _context.SaveChangesAsync();
             return Ok();
         }
@@ -373,20 +205,12 @@
         [Authorize]
         public async Task<IActionResult> DescurtirTopico(int id)
         {
-            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-
-            var curtida = await _context.Curtidas
-                .FirstOrDefaultAsync(c => c.TopicoId == id && c.UsuarioId == userId);
-
-            if (curtida == null)
-            {
-                return NotFound("Você ainda não curtiu este tópico para poder descurtir.");
-            }
-
+            var userId = int.Parse(User.FindFirstValue("UserId"));
+            var curtida = await _context.Curtidas.FirstOrDefaultAsync(c => c.TopicoId == id && c.UsuarioId == userId);
+            if (curtida == null) return BadRequest("Você não curtiu este tópico para poder descurtir.");
             _context.Curtidas.Remove(curtida);
             await _context.SaveChangesAsync();
-
-            return NoContent();
+            return Ok();
         }
 
         // GET: api/topicos/search?q=texto
@@ -400,7 +224,7 @@
             }
 
             var userId = User.Identity.IsAuthenticated
-                ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
+                ? int.Parse(User.FindFirstValue("UserId"))
                 : (int?)null;
 
             var queryLower = q.ToLower();
@@ -410,7 +234,6 @@
                 .Include(t => t.Categoria)
                 .Include(t => t.Respostas)
                 .Include(t => t.Curtidas)
-                // A busca é feita no título e no conteúdo, de forma 'case-insensitive'
                 .Where(t => t.Titulo.ToLower().Contains(queryLower) || t.Conteudo.ToLower().Contains(queryLower))
                 .OrderByDescending(t => t.DataCriacao)
                 .Select(t => new TopicListItemViewModel

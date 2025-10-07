@@ -17,9 +17,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(); 
 
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseSqlite(connectionString, 
+        b => b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<ServerAuthenticationStateProvider>();
@@ -38,12 +40,7 @@ builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7029") });
 
-var jwtKey = builder.Configuration["Jwt:Key"];
-
-if (string.IsNullOrEmpty(jwtKey))
-{
-    throw new InvalidOperationException("A chave secreta do JWT (Jwt:Key) n�o est� configurada no appsettings.json");
-}
+builder.Services.Configure<GoogleAuthSettings>(builder.Configuration.GetSection("GoogleAuth"));
 
 builder.Services.AddAuthentication(options =>
     {
@@ -56,9 +53,10 @@ builder.Services.AddAuthentication(options =>
     })
 .AddGoogle(googleOptions =>
 {
-    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+    googleOptions.ClientId = builder.Configuration["GoogleAuth:ClientId"];
+    googleOptions.ClientSecret = builder.Configuration["GoogleAuth:ClientSecret"];
     
+    // Este bloco é o responsável pela validação e DEVE estar aqui.
     googleOptions.Events = new OAuthEvents
     {
         OnCreatingTicket = async context =>
@@ -70,17 +68,18 @@ builder.Services.AddAuthentication(options =>
                 return;
             }
 
+            // A VALIDAÇÃO DO DOMÍNIO ACONTECE AQUI
             if (!email.EndsWith("@aluno.ifsp.edu.br", StringComparison.OrdinalIgnoreCase) &&
                 !email.EndsWith("@ifsp.edu.br", StringComparison.OrdinalIgnoreCase))
             {
+                // Se o e-mail não for do domínio permitido, a autenticação falha.
                 context.Fail($"Acesso restrito a e-mails do IFSP. E-mail '{email}' não é permitido.");
                 return;
             }
 
+            // Lógica para criar o usuário se ele não existir
             var dbContext = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
-            
             var user = await dbContext.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
-
             if (user == null)
             {
                 var name = context.Identity.FindFirst(ClaimTypes.Name)?.Value;
@@ -89,26 +88,22 @@ builder.Services.AddAuthentication(options =>
                     Email = email,
                     Nome = name ?? "Novo Usuário",
                     DataCriacao = DateTime.UtcNow,
-                    RoleId = 1 // Role padrão de Aluno
+                    RoleId = 1 
                 };
                 dbContext.Usuarios.Add(newUser);
                 await dbContext.SaveChangesAsync();
-                user = newUser; 
+                user = newUser;
             }
             
+            // Lógica para adicionar as 'claims' (informações) do nosso banco ao cookie
             if (user != null)
             {
                 var identity = (ClaimsIdentity)context.Principal.Identity;
-                
-                // Busca a Role (permissão) do usuário no banco de dados
                 var role = await dbContext.Roles.FindAsync(user.RoleId);
                 if (role != null)
                 {
-                    // Adiciona a claim de Role, que o [Authorize(Roles = "...")] usa
                     identity.AddClaim(new Claim(ClaimTypes.Role, role.Id.ToString()));
                 }
-
-                // Adiciona uma claim customizada com o nosso ID interno do usuário.
                 identity.AddClaim(new Claim("UserId", user.Id.ToString()));
             }
         }
@@ -130,6 +125,25 @@ builder.Services.AddServerSideBlazor()
 
         options.KeepAliveInterval = TimeSpan.FromSeconds(30);
     });
+
+// Garanta que o IHttpContextAccessor está registrado
+builder.Services.AddHttpContextAccessor();
+// Registra o nosso novo handler
+builder.Services.AddTransient<HttpClientCookieHandler>();
+
+// REMOVA a linha antiga "builder.Services.AddScoped(sp => new HttpClient ...)"
+// E ADICIONE este bloco:
+builder.Services.AddHttpClient("ServerAPI", client =>
+    {
+        // Configure aqui a URL base da sua aplicação
+        // IMPORTANTE: Verifique a porta no seu Properties/launchSettings.json
+        client.BaseAddress = new Uri("https://localhost:7029"); 
+    })
+    .AddHttpMessageHandler<HttpClientCookieHandler>();
+
+// Disponibiliza o HttpClient configurado para toda a aplicação
+builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("ServerAPI"));
+
 
 var app = builder.Build();
 
