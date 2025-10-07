@@ -1,12 +1,12 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
 @using if_hub.Auth
 
 
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject HttpClient Http
 
 <div class="page-container">
     <header class="header-main text-[#EEEEEE] shadow-md sticky top-0 z-50">
@@ -144,9 +144,10 @@
 
     private async Task Logout()
     {
-        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
-        ((CustomAuthenticationStateProvider)AuthStateProvider).NotifyUserLogout();
-        Navigation.NavigateTo("/");
+        // Chama o endpoint da API que destrói o cookie
+        await Http.PostAsync("api/auth/logout", null);
+        // Recarrega a página para refletir o estado de deslogado
+        Navigation.NavigateTo("/", forceLoad: true);
     }
 
 

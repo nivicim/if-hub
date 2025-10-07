@@ -177,14 +177,9 @@ namespace athenasarchive.Migrations
                     b.Property<int>("UsuarioId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("UsuarioId1")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("Id");
 
                     b.HasIndex("UsuarioId");
-
-                    b.HasIndex("UsuarioId1");
 
                     b.ToTable("Notificacoes");
                 });
@@ -382,7 +377,6 @@ namespace athenasarchive.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("SenhaHash")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -475,14 +469,10 @@ namespace athenasarchive.Migrations
             modelBuilder.Entity("if_hub.Entities.Notificacao", b =>
                 {
                     b.HasOne("if_hub.Entities.Usuario", "Usuario")
-                        .WithMany()
+                        .WithMany("Notificacoes")
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("if_hub.Entities.Usuario", null)
-                        .WithMany("Notificacoes")
-                        .HasForeignKey("UsuarioId1");
 
                     b.Navigation("Usuario");
                 });

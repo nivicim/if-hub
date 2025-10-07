@@ -1,17 +1,16 @@
+using System.Security.Claims;
 using if_hub.Auth;
-using if_hub.Components;
 using if_hub.Entities;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using if_hub.Services;
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Components.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +22,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 
 builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<ServerAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
@@ -42,26 +42,78 @@ var jwtKey = builder.Configuration["Jwt:Key"];
 
 if (string.IsNullOrEmpty(jwtKey))
 {
-    throw new InvalidOperationException("A chave secreta do JWT (Jwt:Key) n�o est� configurada no appsettings.json");
+    throw new InvalidOperationException("A chave secreta do JWT (Jwt:Key) n�o est� configurada no appsettings.json");
 }
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddAuthentication(options =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme; // Define Google como desafio padrão
+    })
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+    })
+.AddGoogle(googleOptions =>
+{
+    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+    
+    googleOptions.Events = new OAuthEvents
+    {
+        OnCreatingTicket = async context =>
         {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+            var email = context.Identity.FindFirst(ClaimTypes.Email)?.Value;
+            if (string.IsNullOrEmpty(email))
+            {
+                context.Fail("Não foi possível obter o e-mail do perfil.");
+                return;
+            }
 
-            ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            if (!email.EndsWith("@aluno.ifsp.edu.br", StringComparison.OrdinalIgnoreCase) &&
+                !email.EndsWith("@ifsp.edu.br", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Fail($"Acesso restrito a e-mails do IFSP. E-mail '{email}' não é permitido.");
+                return;
+            }
 
-            ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            var dbContext = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+            
+            var user = await dbContext.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
 
-            ValidateLifetime = true
-        };
-    });
+            if (user == null)
+            {
+                var name = context.Identity.FindFirst(ClaimTypes.Name)?.Value;
+                var newUser = new Usuario
+                {
+                    Email = email,
+                    Nome = name ?? "Novo Usuário",
+                    DataCriacao = DateTime.UtcNow,
+                    RoleId = 1 // Role padrão de Aluno
+                };
+                dbContext.Usuarios.Add(newUser);
+                await dbContext.SaveChangesAsync();
+                user = newUser; 
+            }
+            
+            if (user != null)
+            {
+                var identity = (ClaimsIdentity)context.Principal.Identity;
+                
+                // Busca a Role (permissão) do usuário no banco de dados
+                var role = await dbContext.Roles.FindAsync(user.RoleId);
+                if (role != null)
+                {
+                    // Adiciona a claim de Role, que o [Authorize(Roles = "...")] usa
+                    identity.AddClaim(new Claim(ClaimTypes.Role, role.Id.ToString()));
+                }
+
+                // Adiciona uma claim customizada com o nosso ID interno do usuário.
+                identity.AddClaim(new Claim("UserId", user.Id.ToString()));
+            }
+        }
+    };
+});
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {

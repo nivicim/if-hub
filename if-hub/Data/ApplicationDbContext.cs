@@ -1,6 +1,5 @@
 ﻿
 using if_hub.Entities;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 public class ApplicationDbContext : DbContext
@@ -50,7 +49,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Nome).IsRequired();
             entity.HasIndex(e => e.Email).IsUnique();
-            entity.Property(e => e.SenhaHash).IsRequired();
             entity.Property(e => e.Ativo).HasDefaultValue(true);
             entity.Property(e => e.Banido).HasDefaultValue(false);
 
@@ -100,7 +98,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Notificacao>(entity =>
         {
             entity.HasOne(n => n.Usuario)
-                  .WithMany() // Um usuário pode ter muitas notificações
+                  .WithMany(u => u.Notificacoes) // Um usuário pode ter muitas notificações
                   .HasForeignKey(n => n.UsuarioId)
                   .OnDelete(DeleteBehavior.Cascade);
         });

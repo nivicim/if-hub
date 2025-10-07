@@ -1,6 +1,4 @@
 ﻿using if_hub.ViewModels; // Adicione este using
-using Microsoft.AspNetCore.Http;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 public class CreateTopicViewModel

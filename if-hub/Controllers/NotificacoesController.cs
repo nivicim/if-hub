@@ -1,11 +1,8 @@
-﻿using if_hub.Entities;
-using if_hub.ViewModels;
+﻿using if_hub.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace if_hub.Controllers
 {

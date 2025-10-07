@@ -1,6 +1,5 @@
 ﻿namespace if_hub.Controllers
 {
-    using if_hub.Entities; 
     using if_hub.ViewModels;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
