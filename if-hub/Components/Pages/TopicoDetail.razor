@@ -17,7 +17,7 @@ else
     <PageTitle>@topic.Titulo</PageTitle>
 
     @* Seção do Tópico Principal *@
-    <article class="topic-card bg-white p-6 rounded-xl shadow-lg mb-8">
+    <article class="topic-card bg-white p-6 rounded-xl shadow-lg mb-8 relative">
         <div class="flex items-start sm:items-center mb-3 flex-col sm:flex-row">
             <img src="https://placehold.co/40x40/00ADB5/EEEEEE?text=@(topic.UsuarioNome?.FirstOrDefault())" alt="Avatar do Utilizador" class="w-10 h-10 rounded-full mr-0 sm:mr-3 mb-2 sm:mb-0">
             <div>
@@ -66,9 +66,27 @@ else
         <div class="flex items-center text-sm meta-text mt-4 pt-4 border-t border-gray-100">
             <AuthorizeView>
                 <Authorized>
+                    <div class="absolute top-4 right-4">
+                        <button @onclick="ToggleTopicMenu" class="text-gray-500 hover:text-gray-800 rounded-full p-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                                <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM10 8.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM11.5 15.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                            </svg>
+                        </button>
+
+                        @if (isTopicMenuOpen)
+                        {
+                            <div @onclick="CloseTopicMenu" class="fixed inset-0 z-10"></div>
+                    
+                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
+                                <button @onclick="async () => { await ReportTopic(); CloseTopicMenu(); }" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    🚩 Denunciar Tópico
+                                </button>
+                            </div>
+                        }
+                    </div>
                     <button @onclick="ToggleTopicLike" class="flex items-center transition-transform duration-150 ease-in-out hover:scale-110">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline mr-1 transition-colors @(topic.UsuarioCurtiu ? "text-red-500" : "text-gray-400")">
-                            <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z" />
+                            <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z"/>
                         </svg>
                         @topic.TotalCurtidas Curtidas
                     </button>
@@ -157,7 +175,18 @@ else
     private List<IBrowserFile> uploadedFilesForReply = new();
     private string? replyErrorMessage;
     private const long MaxFileSize = 10 * 1024 * 1024;
+    private bool isTopicMenuOpen = false;
 
+    private void ToggleTopicMenu()
+    {
+        isTopicMenuOpen = !isTopicMenuOpen;
+    }
+
+    private void CloseTopicMenu()
+    {
+        isTopicMenuOpen = false;
+    }
+    
     protected override async Task OnInitializedAsync() => await LoadTopicAndCheckOwnership();
     
     private async Task LoadTopicAndCheckOwnership()
@@ -374,6 +403,50 @@ else
             {
                 Console.WriteLine($"Falha ao excluir a resposta. Status: {response.StatusCode}");
             }
+        }
+    }
+    
+    private async Task ReportTopic()
+    {
+        var motivo = await JSRuntime.InvokeAsync<string>("prompt", "Por favor, descreva o motivo da sua denúncia:");
+        if (string.IsNullOrWhiteSpace(motivo)) return; // Usuário cancelou ou não digitou nada
+
+        var model = new CreateDenunciaViewModel
+        {
+            Motivo = motivo,
+            TopicoId = TopicId
+        };
+
+        var response = await Http.PostAsJsonAsync("api/denuncias", model);
+        if (response.IsSuccessStatusCode)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Sua denúncia foi enviada com sucesso. A moderação irá analisá-la.");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Ocorreu um erro ao enviar sua denúncia.");
+        }
+    }
+
+    public async Task ReportReply(int respostaId)
+    {
+        var motivo = await JSRuntime.InvokeAsync<string>("prompt", "Por favor, descreva o motivo da sua denúncia para esta resposta:");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        var model = new CreateDenunciaViewModel
+        {
+            Motivo = motivo,
+            RespostaId = respostaId
+        };
+
+        var response = await Http.PostAsJsonAsync("api/denuncias", model);
+        if (response.IsSuccessStatusCode)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Sua denúncia foi enviada com sucesso. A moderação irá analisá-la.");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Ocorreu um erro ao enviar sua denúncia.");
         }
     }
 }

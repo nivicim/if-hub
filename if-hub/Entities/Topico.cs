@@ -9,6 +9,7 @@
         public DateTime? EditadoEm { get; set; }
         public int UsuarioId { get; set; }
         public int CategoriaId { get; set; }
+        public bool Excluido { get; set; } = false;
         public virtual Usuario Usuario { get; set; }
         public virtual Categoria Categoria { get; set; }
         public virtual ICollection<Resposta> Respostas { get; set; }

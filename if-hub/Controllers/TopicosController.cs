@@ -32,6 +32,7 @@
                 : (int?)null;
 
             var topicos = await _context.Topicos
+                .Where(t => !t.Excluido)
                 .Include(t => t.Usuario)
                 .Include(t => t.Categoria)
                 .Include(t => t.Respostas)
@@ -230,6 +231,7 @@
             var queryLower = q.ToLower();
 
             var topicosEncontrados = await _context.Topicos
+                .Where(t => !t.Excluido)
                 .Include(t => t.Usuario)
                 .Include(t => t.Categoria)
                 .Include(t => t.Respostas)

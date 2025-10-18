@@ -132,6 +132,42 @@ namespace athenasarchive.Migrations
                     b.ToTable("Curtidas");
                 });
 
+            modelBuilder.Entity("if_hub.Entities.Denuncia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AutorId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("DataCriacao")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("RespostaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("TopicoId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AutorId");
+
+                    b.HasIndex("RespostaId");
+
+                    b.HasIndex("TopicoId");
+
+                    b.ToTable("Denuncias");
+                });
+
             modelBuilder.Entity("if_hub.Entities.LogAcao", b =>
                 {
                     b.Property<int>("Id")
@@ -153,6 +189,42 @@ namespace athenasarchive.Migrations
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("LogAcoes");
+                });
+
+            modelBuilder.Entity("if_hub.Entities.LogModeracao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Acao")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("DataAcao")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DenunciaId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Justificativa")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ModeradorId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UsuarioAlvoId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DenunciaId");
+
+                    b.HasIndex("ModeradorId");
+
+                    b.HasIndex("UsuarioAlvoId");
+
+                    b.ToTable("LogsModeracao");
                 });
 
             modelBuilder.Entity("if_hub.Entities.Notificacao", b =>
@@ -304,6 +376,9 @@ namespace athenasarchive.Migrations
                     b.Property<DateTime?>("EditadoEm")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("Excluido")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Titulo")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -326,6 +401,7 @@ namespace athenasarchive.Migrations
                             CategoriaId = 1,
                             Conteudo = "Olá pessoal, estou com dificuldade para entender como funcionam os ponteiros para ponteiros em C++. Alguém poderia me dar uma luz?",
                             DataCriacao = new DateTime(2025, 6, 22, 20, 30, 0, 0, DateTimeKind.Utc),
+                            Excluido = false,
                             Titulo = "Dúvida sobre ponteiros em C++",
                             UsuarioId = 2
                         });
@@ -455,6 +531,31 @@ namespace athenasarchive.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("if_hub.Entities.Denuncia", b =>
+                {
+                    b.HasOne("if_hub.Entities.Usuario", "Autor")
+                        .WithMany()
+                        .HasForeignKey("AutorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("if_hub.Entities.Resposta", "Resposta")
+                        .WithMany()
+                        .HasForeignKey("RespostaId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("if_hub.Entities.Topico", "Topico")
+                        .WithMany()
+                        .HasForeignKey("TopicoId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Autor");
+
+                    b.Navigation("Resposta");
+
+                    b.Navigation("Topico");
+                });
+
             modelBuilder.Entity("if_hub.Entities.LogAcao", b =>
                 {
                     b.HasOne("if_hub.Entities.Usuario", "Usuario")
@@ -464,6 +565,32 @@ namespace athenasarchive.Migrations
                         .IsRequired();
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("if_hub.Entities.LogModeracao", b =>
+                {
+                    b.HasOne("if_hub.Entities.Denuncia", "Denuncia")
+                        .WithMany()
+                        .HasForeignKey("DenunciaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("if_hub.Entities.Usuario", "Moderador")
+                        .WithMany()
+                        .HasForeignKey("ModeradorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("if_hub.Entities.Usuario", "UsuarioAlvo")
+                        .WithMany()
+                        .HasForeignKey("UsuarioAlvoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Denuncia");
+
+                    b.Navigation("Moderador");
+
+                    b.Navigation("UsuarioAlvo");
                 });
 
             modelBuilder.Entity("if_hub.Entities.Notificacao", b =>

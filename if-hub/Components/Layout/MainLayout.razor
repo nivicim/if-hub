@@ -31,9 +31,17 @@
                         </button>
                     </form>
                 </div>
+                <AuthorizeView Roles="2,3">
+                    <NavLink href="/admin/reports" class="group flex items-center gap-x-2 p-2 border-2 m-4 border-gray-300 rounded-lg transition-colors duration-150 ease-in-out hover:border-[#00ADB5]">
+                        <span class="text-xl">⚖️</span>
+                        <span class="font-semibold transition-colors duration-150 ease-in-out group-hover:text-[#00ADB5]">
+                            Moderação
+                        </span>
+                    </NavLink>
+                </AuthorizeView>
                 <AuthorizeView Roles="3">
                     <Authorized>
-                        <NavLink href="/admin/users" class="group flex items-center gap-x-2 p-2 border-2 border-gray-300 rounded-lg transition-colors duration-150 ease-in-out hover:border-[#00ADB5]">
+                        <NavLink href="/admin/users" class="group flex items-center gap-x-2 p-2 border-2 m-4 border-gray-300 rounded-lg transition-colors duration-150 ease-in-out hover:border-[#00ADB5]">
                             <span>🛡️</span>
                             <span class="font-semibold transition-colors duration-150 ease-in-out group-hover:text-[#00ADB5]">
                                 Painel Admin
@@ -47,7 +55,8 @@
                         <Authorized>
                             <span class="font-semibold">Olá, @context.User.Identity?.Name</span>
                             <NotificationBell />
-                            <button @onclick="Logout" class="button-logout font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Sair</button>                        </Authorized>
+                            <a href="api/auth/logout" rel="external" class="button-logout font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Sair</a>
+                            </Authorized>
                         <NotAuthorized>
                             <a href="/login" class="button-login font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition">Login</a>
                         </NotAuthorized>
@@ -137,13 +146,7 @@
     {
         _isMobileMenuOpen = false;
     }
-
-    private async Task Logout()
-    {
-        Navigation.NavigateTo("api/auth/logout", forceLoad: true);
-    }
-
-
+    
     private void HandleSearch()
     {
         if (!string.IsNullOrWhiteSpace(searchQuery))

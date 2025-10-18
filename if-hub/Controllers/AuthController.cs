@@ -13,7 +13,7 @@ namespace if_hub.Controllers
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Redirect("/"); // Redireciona para a home
+            return Redirect("/");
         }
 
         [HttpGet("google-login")] 

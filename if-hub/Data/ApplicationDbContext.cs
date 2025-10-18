@@ -19,6 +19,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<Tag> Tags { get; set; }
     public DbSet<TopicoTag> TopicoTags { get; set; }
     public DbSet<Anexo> Anexos { get; set; }
+    public DbSet<Denuncia> Denuncias { get; set; }
+    public DbSet<LogModeracao> LogsModeracao { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -101,6 +103,21 @@ public class ApplicationDbContext : DbContext
                   .WithMany(u => u.Notificacoes) // Um usuário pode ter muitas notificações
                   .HasForeignKey(n => n.UsuarioId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        modelBuilder.Entity<Denuncia>(entity =>
+        {
+            entity.HasOne(d => d.Autor).WithMany().HasForeignKey(d => d.AutorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(d => d.Topico).WithMany().HasForeignKey(d => d.TopicoId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(d => d.Resposta).WithMany().HasForeignKey(d => d.RespostaId).OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        
+        modelBuilder.Entity<LogModeracao>(entity =>
+        {
+            entity.HasOne(l => l.Moderador).WithMany().HasForeignKey(l => l.ModeradorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(l => l.UsuarioAlvo).WithMany().HasForeignKey(l => l.UsuarioAlvoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(l => l.Denuncia).WithMany().HasForeignKey(l => l.DenunciaId).OnDelete(DeleteBehavior.SetNull);
         });
 
         var seedDate = new DateTime(2025, 6, 22, 20, 30, 0, DateTimeKind.Utc);

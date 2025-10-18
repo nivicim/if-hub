@@ -13,6 +13,14 @@
                 Use sua conta institucional do IFSP para entrar.
             </p>
         </div>
+        
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert">
+                <strong class="font-bold">Acesso negado:</strong>
+                <span class="block sm:inline">@Error</span>
+            </div>
+        }
 
         <div class="my-4">
             <a href="api/auth/google-login" rel="external"
@@ -31,4 +39,6 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
 }

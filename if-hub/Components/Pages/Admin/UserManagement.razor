@@ -1,11 +1,10 @@
 ﻿@page "/admin/users"
-@using System.Net.Http.Headers
 @using if_hub.ViewModels
 @using Microsoft.AspNetCore.Components.Authorization
 
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Gerenciamento de Usuários</PageTitle>
 
@@ -19,35 +18,41 @@
         }
         else
         {
-            <div class="bg-white p-6 rounded-xl shadow-lg">
+            <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">ID</th>
-                            <th scope="col" class="px-6 py-3">Nome</th>
-                            <th scope="col" class="px-6 py-3">Email</th>
-                            <th scope="col" class="px-6 py-3">Papel (Role)</th>
-                        </tr>
+                    <tr>
+                        <th scope="col" class="px-6 py-3">ID</th>
+                        <th scope="col" class="px-6 py-3">Nome</th>
+                        <th scope="col" class="px-6 py-3">Email</th>
+                        <th scope="col" class="px-6 py-3">Papel (Role)</th>
+                        <th scope="col" class="px-6 py-3 text-center">Posts Removidos</th> <th scope="col" class="px-6 py-3">Ação</th>
+                    </tr>
                     </thead>
                     <tbody>
-                        @foreach (var user in users)
-                        {
-                            <tr class="bg-white border-b hover:bg-gray-50">
-                                <td class="px-6 py-4">@user.Id</td>
-                                <td class="px-6 py-4">@user.Nome</td>
-                                <td class="px-6 py-4">@user.Email</td>
-                                <td class="px-6 py-4">
-                                    <select @onchange="(e) => HandleRoleChange(e, user.Id)" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-                                        @foreach (var role in allRoles)
-                                        {
-                                            <option value="@role.Id" selected="@(user.RoleNome == role.Nome)">
-                                                @role.Nome
-                                            </option>
-                                        }
-                                    </select>
-                                </td>
-                            </tr>
-                        }
+                    @foreach (var user in users)
+                    {
+                        <tr class="bg-white border-b hover:bg-gray-50 @(user.Banido ? "bg-red-50 opacity-60" : "")">
+                            <td class="px-6 py-4">@user.Id</td>
+                            <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">@user.Nome</td>
+                            <td class="px-6 py-4">@user.Email</td>
+                            <td class="px-6 py-4">
+                                <select @onchange="(e) => HandleRoleChange(e, user.Id)" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                                    @foreach (var role in allRoles)
+                                    {
+                                        <option value="@role.Id" selected="@(user.RoleNome == role.Nome)">
+                                            @role.Nome
+                                        </option>
+                                    }
+                                </select>
+                            </td>
+                            <td class="px-6 py-4 text-center">@user.PostsRemovidosCount</td> <td class="px-6 py-4">
+                                <button @onclick="() => ToggleBan(user)" class="font-medium text-white px-3 py-1 rounded-md text-xs @(user.Banido ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600")">
+                                    @(user.Banido ? "Desbanir" : "Banir")
+                                </button>
+                            </td>
+                        </tr>
+                    }
                     </tbody>
                 </table>
             </div>
@@ -59,59 +64,61 @@
     </NotAuthorized>
 </AuthorizeView>
 
-
 @code {
     private List<UserViewModel>? users;
     private List<RoleViewModel>? allRoles;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (string.IsNullOrEmpty(token))
-            {
-                Navigation.NavigateTo("/login");
-                return;
-            }
-
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
             users = await Http.GetFromJsonAsync<List<UserViewModel>>("api/admin/users");
             allRoles = await Http.GetFromJsonAsync<List<RoleViewModel>>("api/roles");
-
-            Http.DefaultRequestHeaders.Authorization = null;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao buscar dados do admin: {ex.Message}");
+            errorMessage = $"Erro ao buscar dados do admin: {ex.Message}";
         }
     }
 
     private async Task HandleRoleChange(ChangeEventArgs e, int userId)
     {
         if (e.Value == null) return;
-
         var newRoleId = int.Parse(e.Value.ToString());
-
         var model = new UpdateUserRoleViewModel { NewRoleId = newRoleId };
-
-        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-        if (string.IsNullOrEmpty(token)) return;
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         var response = await Http.PutAsJsonAsync($"api/admin/users/{userId}/role", model);
 
-        Http.DefaultRequestHeaders.Authorization = null;
+        if (!response.IsSuccessStatusCode)
+        {
+            errorMessage = "Falha ao atualizar o papel do usuário.";
+        }
+    }
+
+    private async Task ToggleBan(UserViewModel user)
+    {
+        errorMessage = null;
+        var action = user.Banido ? "desbanir" : "banir";
+        var justificativa = await JsRuntime.InvokeAsync<string>("prompt", $"Por favor, insira uma justificativa para {action} o usuário '{user.Nome}':");
+
+        if (string.IsNullOrWhiteSpace(justificativa))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Ação cancelada. A justificativa é obrigatória.");
+            return;
+        }
+        
+        var model = new BanUsuarioViewModel { Justificativa = justificativa };
+        var response = await Http.PostAsJsonAsync($"api/admin/users/{user.Id}/toggle-ban", model);
 
         if (response.IsSuccessStatusCode)
         {
-            await OnInitializedAsync();
+            user.Banido = !user.Banido;
         }
         else
         {
-            Console.WriteLine($"Falha ao atualizar o papel do usuário. Status: {response.StatusCode}");
+            var error = await response.Content.ReadAsStringAsync();
+            errorMessage = $"Erro: {error}";
+            await JsRuntime.InvokeVoidAsync("alert", $"Erro: {error}");
         }
     }
 }
