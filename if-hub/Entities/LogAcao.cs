@@ -6,10 +6,8 @@
         public string Acao { get; set; }
         public DateTime Data { get; set; }
 
-        // Foreign Key
         public int UsuarioId { get; set; }
 
-        // Navigation property
         public virtual Usuario Usuario { get; set; }
     }
 }

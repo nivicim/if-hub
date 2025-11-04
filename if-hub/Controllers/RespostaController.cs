@@ -31,7 +31,7 @@
             var userId = int.Parse(User.FindFirstValue("UserId"));
             var usuarioQueRespondeu = await _context.Usuarios.FindAsync(userId);
             var novaResposta = new Resposta { Conteudo = respostaViewModel.Conteudo, DataCriacao = DateTime.UtcNow, TopicoId = respostaViewModel.TopicoId, UsuarioId = userId, RespostaPaiId = respostaViewModel.RespostaPaiId };
-            if (respostaViewModel.Anexos != null) { foreach (var file in respostaViewModel.Anexos) { var anexoUrl = await _fileStorageService.SaveFileAsync(file); novaResposta.Anexos.Add(new Anexo { NomeArquivo = file.FileName, Url = anexoUrl, TipoConteudo = file.ContentType, TamanhoEmBytes = file.Length, IsCarouselImage = false }); } } // IsCarouselImage é sempre false para respostas
+            if (respostaViewModel.Anexos != null) { foreach (var file in respostaViewModel.Anexos) { var anexoUrl = await _fileStorageService.SaveFileAsync(file); novaResposta.Anexos.Add(new Anexo { NomeArquivo = file.FileName, Url = anexoUrl, TipoConteudo = file.ContentType, TamanhoEmBytes = file.Length, IsCarouselImage = false }); } }
             _context.Respostas.Add(novaResposta);
             var topico = await _context.Topicos.FindAsync(respostaViewModel.TopicoId);
             if (topico.UsuarioId != userId) { var notificacaoTopico = new Notificacao { UsuarioId = topico.UsuarioId, Mensagem = $"{usuarioQueRespondeu.Nome} respondeu ao seu tópico '{topico.Titulo}'.", LinkId = topico.Id }; _context.Notificacoes.Add(notificacaoTopico); }
@@ -54,7 +54,7 @@
             var userRole = User.FindFirstValue(ClaimTypes.Role);
             var resposta = await _context.Respostas.FindAsync(id);
             if (resposta == null) return NotFound();
-            if (resposta.UsuarioId != userId && userRole != "3") return Forbid(); // Supondo que Role 3 é Admin
+            if (resposta.UsuarioId != userId && userRole != "3") return Forbid();
             resposta.Excluida = true;
             resposta.Conteudo = "[Comentário removido pelo autor ou moderador]";
             await _context.SaveChangesAsync();

@@ -23,9 +23,7 @@ namespace if_hub.Controllers
             {
                 return BadRequest("Nenhum arquivo enviado.");
             }
-
-            // Você pode adicionar validações de tamanho aqui se quiser
-
+            
             var fileUrl = await _fileStorageService.SaveFileAsync(file);
 
             if (string.IsNullOrEmpty(fileUrl))
@@ -33,7 +31,6 @@ namespace if_hub.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, "Ocorreu um erro ao salvar o arquivo.");
             }
 
-            // Retorna a URL pública do arquivo salvo
             return Ok(new { url = fileUrl, fileName = file.FileName, contentType = file.ContentType });
         }
     }

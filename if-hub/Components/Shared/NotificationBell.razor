@@ -61,7 +61,6 @@
 
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        // Busca a contagem inicial para o badge
         var countResponse = await Http.GetFromJsonAsync<UnreadCountResponse>("api/notificacoes/nao-lidas/contagem");
         if (countResponse != null)
         {
@@ -79,7 +78,6 @@
     {
         areNotificationsVisible = !areNotificationsVisible;
 
-        // Se o menu for aberto e houver notificações não lidas, busca a lista completa e marca como lidas
         if (areNotificationsVisible && unreadCount > 0)
         {
             var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
@@ -92,9 +90,9 @@
 
             Http.DefaultRequestHeaders.Authorization = null;
 
-            unreadCount = 0; // Zera a contagem na UI instantaneamente
+            unreadCount = 0; 
         }
-        else if (areNotificationsVisible) // Se abrir sem notificações novas, apenas busca a lista
+        else if (areNotificationsVisible) 
         {
             var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
             if (string.IsNullOrEmpty(token)) return;

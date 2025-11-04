@@ -138,7 +138,7 @@
             var userRole = User.FindFirstValue(ClaimTypes.Role);
             var topico = await _context.Topicos.FindAsync(id);
             if (topico == null) return NotFound();
-            if (topico.UsuarioId != userId && userRole != "3") return Forbid(); // Supondo que Role 3 é Admin
+            if (topico.UsuarioId != userId && userRole != "3") return Forbid(); 
             _context.Topicos.Remove(topico);
             await _context.SaveChangesAsync();
             return NoContent();
@@ -157,7 +157,7 @@
             var topico = await _context.Topicos.Include(t => t.Anexos).FirstOrDefaultAsync(t => t.Id == id);
             
             if (topico == null) return NotFound();
-            if (topico.UsuarioId != userId && userRole != "3") return Forbid(); // Supondo que Role 3 é Admin
+            if (topico.UsuarioId != userId && userRole != "3") return Forbid(); 
             
             topico.Titulo = topicViewModel.Titulo;
             topico.Conteudo = topicViewModel.Conteudo;

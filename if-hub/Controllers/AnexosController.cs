@@ -32,7 +32,6 @@ namespace if_hub.Controllers
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var userRole = User.FindFirstValue(ClaimTypes.Role);
 
-            // Verifica se o usuário é o dono do conteúdo pai (tópico ou resposta)
             var ehDono = false;
             if (anexo.TopicoId.HasValue)
             {
@@ -51,13 +50,11 @@ namespace if_hub.Controllers
                 }
             }
 
-            // Permite a exclusão se for o dono OU se for moderador/admin
             if (!ehDono && userRole != "2" && userRole != "3")
             {
                 return Forbid();
             }
 
-            // Deleta o arquivo físico e depois o registro no banco
             await _fileStorageService.DeleteFileAsync(anexo.Url);
             _context.Anexos.Remove(anexo);
             await _context.SaveChangesAsync();

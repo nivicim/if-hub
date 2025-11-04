@@ -9,7 +9,7 @@ namespace if_hub.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Apenas usuários logados podem fazer denúncias
+    [Authorize] 
     public class DenunciasController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

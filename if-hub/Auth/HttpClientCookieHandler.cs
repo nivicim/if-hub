@@ -15,7 +15,6 @@ namespace if_hub.Auth
             
             if (!string.IsNullOrEmpty(cookie))
             {
-                // CORREÇÃO: Usamos .ToString() para resolver a ambiguidade
                 request.Headers.Add("Cookie", cookie.ToString());
             }
 

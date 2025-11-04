@@ -100,7 +100,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Notificacao>(entity =>
         {
             entity.HasOne(n => n.Usuario)
-                  .WithMany(u => u.Notificacoes) // Um usuário pode ter muitas notificações
+                  .WithMany(u => u.Notificacoes)
                   .HasForeignKey(n => n.UsuarioId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
