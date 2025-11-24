@@ -13,12 +13,12 @@
 <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
     <div>
         <h1 class="text-3xl font-bold text-[#222831]">Explorar Tópicos</h1>
-        <p class="text-gray-600 mt-1">Veja o que está acontecendo na comunidade do IFSP.</p>
+        <p class="text-gray-600 mt-1">Veja o que está acontecendo na comunidade de Ciência da Computação do IFSP Salto.</p>
     </div>
     
     <AuthorizeView>
         <Authorized>
-            <a href="/create-topic" class="bg-[#00ADB5] hover:bg-[#008c93] text-white font-bold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center gap-2">
+            <a href="/topics/new" class="bg-[#00ADB5] hover:bg-[#008c93] text-white font-bold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
@@ -26,7 +26,10 @@
             </a>
         </Authorized>
         <NotAuthorized>
-            <a href="/login" class="text-[#00ADB5] hover:text-[#008c93] font-semibold text-sm hover:underline">
+            <a href="/login" class="bg-[#00ADB5] hover:bg-[#008c93] text-white font-bold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
                 Faça login para criar um tópico
             </a>
         </NotAuthorized>
@@ -35,19 +38,19 @@
 
 <div class="mb-6">
     <nav class="flex space-x-4 border-b border-gray-200 overflow-x-auto pb-1">
-        <button @onclick="@(() => SelectSort("recentes"))"
+        <button @onclick="@(() => SelectSort("recentes"))" 
                 class="py-2 px-1 font-semibold border-b-2 whitespace-nowrap transition-colors @(currentSortBy == "recentes" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
             Recentes
         </button>
-        <button @onclick="@(() => SelectSort("emalta"))"
+        <button @onclick="@(() => SelectSort("emalta"))" 
                 class="py-2 px-1 font-semibold border-b-2 whitespace-nowrap transition-colors @(currentSortBy == "emalta" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
             Em Alta 🔥
         </button>
-        <button @onclick="@(() => SelectSort("curtidas"))"
+        <button @onclick="@(() => SelectSort("curtidas"))" 
                 class="py-2 px-1 font-semibold border-b-2 whitespace-nowrap transition-colors @(currentSortBy == "curtidas" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
             Mais Curtidos
         </button>
-        <button @onclick="@(() => SelectSort("respostas"))"
+        <button @onclick="@(() => SelectSort("respostas"))" 
                 class="py-2 px-1 font-semibold border-b-2 whitespace-nowrap transition-colors @(currentSortBy == "respostas" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
             Mais Respondidos
         </button>
@@ -133,7 +136,6 @@ else if (isLoading && topics.Count > 0)
     </div>
 }
 
-
 @code {
     private List<TopicListItemViewModel> topics = new();
     private string currentSortBy = "recentes";
@@ -153,6 +155,7 @@ else if (isLoading && topics.Count > 0)
         
         try
         {
+            // Importante: Certifique-se de que sua API no backend já suporta esses parâmetros
             var pagedResult = await Http.GetFromJsonAsync<PagedResultViewModel<TopicListItemViewModel>>($"api/topicos?sortBy={currentSortBy}&page={currentPage}");
             
             if (pagedResult != null && pagedResult.Items.Any())
