@@ -1,37 +1,46 @@
 ﻿@page "/"
-@using System.Net.Http.Headers
 @using if_hub.ViewModels
 @using Microsoft.AspNetCore.Components.Authorization
 
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
+@inject IJSRuntime JsRuntime
 @inject NavigationManager Navigation
 
-<PageTitle>Home - Fórum IF-Hub</PageTitle>
+<PageTitle>iF-Hub - Página Inicial</PageTitle>
 
-<div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-[#222831]">Tópicos Recentes</h1>
-    <AuthorizeView>
-        <Authorized>
-            <a href="/topics/new" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                </svg>
-                <span>Criar Novo Tópico</span>
-            </a>
-        </Authorized>
-    </AuthorizeView>
+<div class="mb-6">
+    <nav class="flex space-x-4 border-b border-gray-200">
+        <button @onclick="@(() => SelectSort("recentes"))" 
+                class="py-3 px-1 font-semibold border-b-2 @(currentSortBy == "recentes" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
+            Recentes
+        </button>
+        <button @onclick="@(() => SelectSort("emalta"))" 
+                class="py-3 px-1 font-semibold border-b-2 @(currentSortBy == "emalta" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
+            Em Alta
+        </button>
+        <button @onclick="@(() => SelectSort("curtidas"))" 
+                class="py-3 px-1 font-semibold border-b-2 @(currentSortBy == "curtidas" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
+            Mais Curtidos
+        </button>
+        <button @onclick="@(() => SelectSort("respostas"))" 
+                class="py-3 px-1 font-semibold border-b-2 @(currentSortBy == "respostas" ? "text-[#00ADB5] border-[#00ADB5]" : "text-gray-500 border-transparent hover:text-gray-700")">
+            Mais Respondidos
+        </button>
+    </nav>
 </div>
 
-
-@if (topicos == null)
-{
-    <p><em>Carregando tópicos...</em></p>
-}
-else
-{
-    <div class="space-y-4">
-        @foreach (var topico in topicos)
+<div class="space-y-4">
+    @if (topics.Count == 0 && isLoading)
+    {
+        <p><em>Carregando tópicos...</em></p>
+    }
+    else if (topics.Count == 0)
+    {
+        <p>Nenhum tópico encontrado para esta seleção.</p>
+    }
+    else
+    {
+        @foreach (var topico in topics)
         {
             <article class="topic-card bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200 flex flex-col">
                 <div class="flex-grow">
@@ -50,20 +59,14 @@ else
                     <AuthorizeView>
                         <Authorized>
                             <button @onclick="() => ToggleLike(topico)" class="flex items-center transition-transform duration-150 ease-in-out hover:scale-110">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                                     class="w-5 h-5 inline mr-1 transition-colors @(topico.UsuarioCurtiu ? "text-red-500" : "text-gray-400")">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline mr-1 transition-colors @(topico.UsuarioCurtiu ? "text-red-500" : "text-gray-400")">
                                     <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z" />
                                 </svg>
                                 @topico.TotalCurtidas Curtidas
                             </button>
                         </Authorized>
                         <NotAuthorized>
-                            <span class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 inline mr-1 text-gray-400">
-                                    <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 0 1-1.162-.682 22.045 22.045 0 0 1-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 0 1 8-2.828A4.5 4.5 0 0 1 18 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 0 1-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 0 1-.69.001l-.002-.001Z" />
-                                </svg>
-                                @topico.TotalCurtidas Curtidas
-                            </span>
+                            <span class="flex items-center">@topico.TotalCurtidas Curtidas</span>
                         </NotAuthorized>
                     </AuthorizeView>
 
@@ -76,30 +79,90 @@ else
                 </div>
             </article>
         }
+    }
+</div>
+
+@if (hasNextPage)
+{
+    <div class="mt-8 text-center">
+        <button @onclick="LoadMoreTopics" class="button-register font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg" disabled="@isLoading">
+            @if (isLoading)
+            {
+                <span>Carregando...</span>
+            }
+            else
+            {
+                <span>Carregar Mais</span>
+            }
+        </button>
     </div>
 }
 
+
 @code {
-    private List<TopicListItemViewModel>? topicos;
+    private List<TopicListItemViewModel> topics = new();
+    private string currentSortBy = "recentes";
+    private int currentPage = 1;
+    private bool hasNextPage = true;
+    private bool isLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadTopics();
+    }
+
+    private async Task LoadTopics()
+    {
+        if (isLoading) return;
+        isLoading = true;
+        
         try
         {
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (!string.IsNullOrEmpty(token))
+            var pagedResult = await Http.GetFromJsonAsync<PagedResultViewModel<TopicListItemViewModel>>($"api/topicos?sortBy={currentSortBy}&page={currentPage}");
+            
+            if (pagedResult != null && pagedResult.Items.Any())
             {
-                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                topics.AddRange(pagedResult.Items);
+                hasNextPage = pagedResult.HasNextPage;
+                currentPage = pagedResult.CurrentPage;
             }
-
-            topicos = await Http.GetFromJsonAsync<List<TopicListItemViewModel>>("api/topicos");
-
-            Http.DefaultRequestHeaders.Authorization = null;
+            else
+            {
+                hasNextPage = false;
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Erro ao buscar tópicos: {ex.Message}");
+            hasNextPage = false;
         }
+        
+        isLoading = false;
+    }
+
+    private async Task SelectSort(string sortBy)
+    {
+        if (currentSortBy == sortBy) return;
+
+        currentSortBy = sortBy;
+        ResetTopicList();
+        await LoadTopics();
+    }
+
+    private async Task LoadMoreTopics()
+    {
+        if (hasNextPage)
+        {
+            currentPage++;
+            await LoadTopics();
+        }
+    }
+
+    private void ResetTopicList()
+    {
+        topics.Clear();
+        currentPage = 1;
+        hasNextPage = true;
     }
 
     private async Task ToggleLike(TopicListItemViewModel topico)
@@ -113,9 +176,9 @@ else
             topico.UsuarioCurtiu = !topico.UsuarioCurtiu;
             topico.TotalCurtidas += topico.UsuarioCurtiu ? 1 : -1;
         }
-        else
+        else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            Console.WriteLine($"Falha ao curtir/descurtir. Status: {response.StatusCode}");
+            Navigation.NavigateTo("/login", forceLoad: true);
         }
     }
 }

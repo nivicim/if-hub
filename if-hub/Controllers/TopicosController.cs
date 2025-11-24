@@ -23,35 +23,73 @@
         }
 
         // GET: api/topicos
-        [HttpGet]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetTopicos()
-        {
-            var userId = User.Identity.IsAuthenticated
-                ? int.Parse(User.FindFirstValue("UserId"))
-                : (int?)null;
+// Em Controllers/TopicosController.cs
 
-            var topicos = await _context.Topicos
-                .Where(t => !t.Excluido)
-                .Include(t => t.Usuario)
-                .Include(t => t.Categoria)
-                .Include(t => t.Respostas)
-                .Include(t => t.Curtidas)
-                .OrderByDescending(t => t.DataCriacao)
-                .Select(t => new TopicListItemViewModel
-                {
-                    Id = t.Id,
-                    Titulo = t.Titulo,
-                    UsuarioNome = t.Usuario != null ? t.Usuario.Nome : "Usuário Deletado",
-                    CategoriaId = t.CategoriaId,
-                    CategoriaNome = t.Categoria != null ? t.Categoria.Nome : "Sem Categoria",
-                    TotalRespostas = t.Respostas.Count(),
-                    TotalCurtidas = t.Curtidas.Count(),
-                    UsuarioCurtiu = userId.HasValue && t.Curtidas.Any(c => c.UsuarioId == userId.Value)
-                }).ToListAsync();
-        
-            return Ok(topicos);
-        }
+// GET: api/topicos
+[HttpGet]
+[AllowAnonymous]
+public async Task<IActionResult> GetTopicos(
+    [FromQuery] string sortBy = "recentes", 
+    [FromQuery] int page = 1, 
+    [FromQuery] int pageSize = 10)
+{
+    var userId = User.Identity.IsAuthenticated ? int.Parse(User.FindFirstValue("UserId")) : (int?)null;
+
+    var query = _context.Topicos
+        .Where(t => !t.Excluido)
+        .Include(t => t.Usuario)
+        .Include(t => t.Categoria)
+        .Include(t => t.Respostas)
+        .Include(t => t.Curtidas)
+        .AsQueryable();
+
+    // Aplica a ordenação baseada no parâmetro 'sortBy'
+    switch (sortBy.ToLower())
+    {
+        case "curtidas":
+            query = query.OrderByDescending(t => t.Curtidas.Count());
+            break;
+        case "respostas":
+            query = query.OrderByDescending(t => t.Respostas.Count());
+            break;
+        case "emalta":
+            query = query.OrderByDescending(t => (t.Curtidas.Count() * 1) + (t.Respostas.Count() * 2))
+                         .ThenByDescending(t => t.DataCriacao);
+            break;
+        case "recentes":
+        default:
+            query = query.OrderByDescending(t => t.DataCriacao);
+            break;
+    }
+
+    var totalItems = await query.CountAsync();
+    var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+    var pagedTopics = await query
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(t => new TopicListItemViewModel
+        {
+            Id = t.Id,
+            Titulo = t.Titulo,
+            UsuarioNome = t.Usuario != null ? t.Usuario.Nome : "Usuário Deletado",
+            CategoriaId = t.CategoriaId,
+            CategoriaNome = t.Categoria != null ? t.Categoria.Nome : "Sem Categoria",
+            TotalRespostas = t.Respostas.Count(),
+            TotalCurtidas = t.Curtidas.Count(),
+            UsuarioCurtiu = userId.HasValue && t.Curtidas.Any(c => c.UsuarioId == userId.Value)
+        }).ToListAsync();
+
+    var result = new PagedResultViewModel<TopicListItemViewModel>
+    {
+        Items = pagedTopics,
+        CurrentPage = page,
+        TotalPages = totalPages,
+        HasNextPage = page < totalPages
+    };
+
+    return Ok(result);
+}
 
         // GET: api/topicos/{id}
         [HttpGet("{id}")]
