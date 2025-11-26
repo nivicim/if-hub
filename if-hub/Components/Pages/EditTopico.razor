@@ -2,178 +2,168 @@
 @using System.Net.Http.Headers
 @using if_hub.ViewModels
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
 
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
-<PageTitle>Editando Tópico</PageTitle>
+<PageTitle>Editar Tópico</PageTitle>
 
-<AuthorizeView Context="authContext">
-    <Authorized>
-        @if (topicModel == null)
-        {
-            <p><em>Carregando informações do tópico...</em></p>
-        }
-        else
-        {
-            <div class="w-full max-w-4xl mx-auto">
-                <h1 class="text-3xl font-bold text-[#222831] mb-6">Editando Tópico</h1>
+<div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+    <h1 class="text-3xl font-bold text-[#222831] mb-6">Editar Tópico</h1>
 
-                <article class="topic-card bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                    <EditForm Model="topicModel" OnValidSubmit="HandleUpdateTopic">
-                        <DataAnnotationsValidator />
-                        <div class="space-y-6">
-                            <div>
-                                <label for="titulo" class="block mb-2 text-sm font-medium text-gray-900">Título</label>
-                                <InputText id="titulo" @bind-Value="topicModel.Titulo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" />
-                                <ValidationMessage For="@(() => topicModel.Titulo)" class="text-red-600 text-sm mt-1" />
-                            </div>
-                            <div>
-                                <label for="conteudo" class="block mb-2 text-sm font-medium text-gray-900">Conteúdo</label>
-                                <InputTextArea id="conteudo" @bind-Value="topicModel.Conteudo" class="w-full px-4 py-2 border search-input rounded-lg focus:ring-2 outline-none transition" rows="10" />
-                                <ValidationMessage For="@(() => topicModel.Conteudo)" class="text-red-600 text-sm mt-1" />
-                            </div>
+    @if (isLoading)
+    {
+        <p>Carregando...</p>
+    }
+    else if (updateModel == null)
+    {
+        <p class="text-red-500">Não foi possível carregar o tópico.</p>
+    }
+    else
+    {
+        <EditForm Model="updateModel" OnValidSubmit="HandleUpdateTopic">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
 
-                            @{
-                                var currentImages = currentAttachments.Where(a => a.TipoConteudo.StartsWith("image/")).ToList();
-                                var otherAttachments = currentAttachments.Where(a => !a.TipoConteudo.StartsWith("image/")).ToList();
-                            }
-
-                            @if (currentImages.Any())
-                            {
-                                <div>
-                                    <label class="block mb-2 text-sm font-medium text-gray-900">Imagens Atuais (Clique no X para remover)</label>
-                                    <div class="flex flex-wrap gap-2">
-                                        @foreach (var anexo in currentImages)
-                                        {
-                                            <div class="relative">
-                                                <img src="@anexo.Url" class="h-24 w-24 object-cover rounded-lg" />
-                                                <button type="button" @onclick="() => DeleteAttachment(anexo.Id)" class="absolute top-0 right-0 m-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">&times;</button>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            }
-
-                            @if (otherAttachments.Any())
-                            {
-                                <div>
-                                    <label class="block mb-2 text-sm font-medium text-gray-900">Outros Anexos (Clique no X para remover)</label>
-                                    <div class="space-y-2">
-                                        @foreach (var anexo in otherAttachments)
-                                        {
-                                            <div class="flex items-center justify-between p-2 bg-gray-100 rounded-lg">
-                                                <span class="text-sm">@anexo.NomeArquivo</span>
-                                                <button type="button" @onclick="() => DeleteAttachment(anexo.Id)" class="text-red-500 hover:text-red-700 font-bold text-lg leading-none">&times;</button>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            }
-
-                            <div>
-                                <label for="imagens" class="block mb-2 text-sm font-medium text-gray-900">Adicionar Novas Imagens</label>
-                                <InputFile id="imagens" OnChange="LoadCarouselImages" multiple accept="image/*" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
-                            </div>
-                            <div>
-                                <label for="anexos" class="block mb-2 text-sm font-medium text-gray-900">Adicionar Outros Anexos</label>
-                                <InputFile id="anexos" OnChange="LoadOtherFiles" multiple class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
-                            </div>
-
-                            @if (!string.IsNullOrEmpty(errorMessage))
-                            {
-                                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-                                    @errorMessage
-                                </div>
-                            }
-
-                            @if (!string.IsNullOrEmpty(warningMessage))
-                            {
-                                <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg" role="alert">
-                                    @warningMessage
-                                </div>
-                            }
-
-                            <div class="flex justify-end gap-4">
-                                <a href="@($"/topics/{TopicId}")" class="button-login font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">Cancelar</a>
-                                <button type="submit" class="create-topic-button font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition duration-150">Salvar Alterações</button>
-                            </div>
-                        </div>
-                    </EditForm>
-                </article>
+            <div class="mb-6">
+                <label for="titulo" class="block mb-2 text-sm font-medium text-gray-900">Título</label>
+                <InputText id="titulo" @bind-Value="updateModel.Titulo" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#00ADB5] focus:border-[#00ADB5] block w-full p-2.5" />
+                <ValidationMessage For="@(() => updateModel.Titulo)" />
             </div>
-        }
-    </Authorized>
-    <NotAuthorized>
-        <p>Você precisa <a href="/login" class="topic-title-link">fazer login</a> para editar este tópico.</p>
-    </NotAuthorized>
-</AuthorizeView>
 
+            <div class="mb-6">
+                <label for="conteudo" class="block mb-2 text-sm font-medium text-gray-900">Conteúdo</label>
+                <InputTextArea id="conteudo" @bind-Value="updateModel.Conteudo" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-[#00ADB5] focus:border-[#00ADB5] block w-full p-2.5" rows="8" />
+                <ValidationMessage For="@(() => updateModel.Conteudo)" />
+            </div>
+
+            @if (currentAttachments.Any())
+            {
+                <div class="mb-6">
+                    <label class="block mb-2 text-sm font-medium text-gray-900">Anexos Atuais:</label>
+                    <ul class="space-y-2">
+                        @foreach (var anexo in currentAttachments)
+                        {
+                            <li class="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                                <span class="text-sm truncate max-w-xs">@anexo.NomeArquivo</span>
+                                <button type="button" @onclick="() => DeleteAttachment(anexo.Id)" class="text-red-600 hover:text-red-800 text-sm font-semibold">
+                                    Remover
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                    <p class="text-xs text-gray-500 mt-1">Atenção: Remover um anexo aqui o exclui permanentemente.</p>
+                </div>
+            }
+
+            <div class="mb-6">
+                <label class="block mb-2 text-sm font-medium text-gray-900">Adicionar Imagens (Carrossel)</label>
+                <InputFile OnChange="@(e => LoadFiles(e, true))" multiple accept="image/*" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50" />
+            </div>
+
+            <div class="mb-6">
+                <label class="block mb-2 text-sm font-medium text-gray-900">Adicionar Outros Anexos</label>
+                <InputFile OnChange="@(e => LoadFiles(e, false))" multiple class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
+                    @errorMessage
+                </div>
+            }
+
+            <div class="flex justify-end gap-4">
+                <a href="/topics/@TopicId" class="text-gray-600 hover:text-gray-800 font-semibold py-2.5 px-5">Cancelar</a>
+                <button type="submit" class="text-white bg-[#00ADB5] hover:bg-[#008c93] focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center shadow-md transition-all disabled:opacity-50" disabled="@isSubmitting">
+                    @if (isSubmitting)
+                    {
+                        <span>Salvando...</span>
+                    }
+                    else
+                    {
+                        <span>Salvar Alterações</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+    }
+</div>
 
 @code {
     [Parameter]
     public int TopicId { get; set; }
 
-    private UpdateTopicViewModel topicModel = new();
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+
+    private UpdateTopicViewModel? updateModel;
     private List<AnexoViewModel> currentAttachments = new();
     private List<IBrowserFile> newImages = new();
     private List<IBrowserFile> newOtherFiles = new();
+    
+    private bool isLoading = true;
+    private bool isSubmitting = false;
     private string? errorMessage;
-    private string? warningMessage;
+    private const long MaxFileSize = 10 * 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
-            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
+            // 1. Busca os dados atuais do tópico
             var topicDetail = await Http.GetFromJsonAsync<TopicDetailViewModel>($"api/topicos/{TopicId}");
 
-            Http.DefaultRequestHeaders.Authorization = null;
-
-            if (topicDetail != null)
+            if (topicDetail == null)
             {
-                topicModel.Titulo = topicDetail.Titulo;
-                topicModel.Conteudo = topicDetail.Conteudo;
-                currentAttachments = topicDetail.Anexos;
+                Navigation.NavigateTo("/");
+                return;
             }
+
+            // 2. Verifica se o usuário é o dono ou Admin
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+            var userId = user.FindFirstValue("UserId");
+            var userRole = user.FindFirstValue(ClaimTypes.Role);
+
+            if (userId != topicDetail.UsuarioId.ToString() && userRole != "3" && userRole != "2")
+            {
+                Navigation.NavigateTo($"/topics/{TopicId}"); // Não tem permissão
+                return;
+            }
+
+            // 3. Prepara o modelo de edição
+            updateModel = new UpdateTopicViewModel
+            {
+                Titulo = topicDetail.Titulo,
+                Conteudo = topicDetail.Conteudo
+            };
+            currentAttachments = topicDetail.Anexos;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            errorMessage = "Não foi possível carregar os dados do tópico.";
+            errorMessage = "Erro ao carregar tópico: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
-    private void LoadCarouselImages(InputFileChangeEventArgs e)
+    private void LoadFiles(InputFileChangeEventArgs e, bool isImage)
     {
-        warningMessage = null;
-        newImages.Clear();
-        var files = e.GetMultipleFiles();
-        if (files.Count > 6)
-        {
-            warningMessage = "Limite de 6 imagens excedido. Apenas as 6 primeiras serão consideradas.";
-        }
-        newImages.AddRange(files.Take(6));
-    }
-
-    private void LoadOtherFiles(InputFileChangeEventArgs e)
-    {
-        warningMessage = null;
-        newOtherFiles.Clear();
-        var files = e.GetMultipleFiles();
-        if (files.Count > 2)
-        {
-            warningMessage = "Limite de 2 anexos excedido. Apenas os 2 primeiros serão considerados.";
-        }
-        newOtherFiles.AddRange(files.Take(2));
+        var files = e.GetMultipleFiles(isImage ? 6 : 2);
+        if (isImage) newImages = files.ToList();
+        else newOtherFiles = files.ToList();
     }
 
     private async Task DeleteAttachment(int anexoId)
     {
-        errorMessage = null;
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Tem certeza? O arquivo será apagado permanentemente.")) return;
+
         var response = await Http.DeleteAsync($"api/anexos/{anexoId}");
         if (response.IsSuccessStatusCode)
         {
@@ -181,48 +171,53 @@
         }
         else
         {
-            errorMessage = "Não foi possível remover o anexo.";
+            await JSRuntime.InvokeVoidAsync("alert", "Erro ao remover anexo.");
         }
     }
 
     private async Task HandleUpdateTopic()
     {
+        isSubmitting = true;
         errorMessage = null;
-        using var content = new MultipartFormDataContent();
-
-        content.Add(new StringContent(topicModel.Titulo), "Titulo");
-        content.Add(new StringContent(topicModel.Conteudo), "Conteudo");
 
         try
         {
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(updateModel.Titulo), "Titulo");
+            content.Add(new StringContent(updateModel.Conteudo), "Conteudo");
+
             foreach (var file in newImages)
             {
-                var fileContent = new StreamContent(file.OpenReadStream(10 * 1024 * 1024));
+                var fileContent = new StreamContent(file.OpenReadStream(MaxFileSize));
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
                 content.Add(fileContent, "Imagens", file.Name);
             }
+
             foreach (var file in newOtherFiles)
             {
-                var fileContent = new StreamContent(file.OpenReadStream(10 * 1024 * 1024));
+                var fileContent = new StreamContent(file.OpenReadStream(MaxFileSize));
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
                 content.Add(fileContent, "OutrosAnexos", file.Name);
             }
-        }
-        catch(IOException)
-        {
-            errorMessage = "Um ou mais arquivos excedem o limite de tamanho de 10MB.";
-            return;
-        }
 
-        var response = await Http.PutAsync($"api/topicos/{TopicId}", content);
+            var response = await Http.PutAsync($"api/topicos/{TopicId}", content);
 
-        if (response.IsSuccessStatusCode)
-        {
-            Navigation.NavigateTo($"/topics/{TopicId}");
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo($"/topics/{TopicId}");
+            }
+            else
+            {
+                errorMessage = "Erro ao atualizar tópico.";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            errorMessage = "Ocorreu um erro ao salvar as alterações.";
+            errorMessage = "Erro inesperado: " + ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
         }
     }
 }
